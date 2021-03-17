@@ -431,7 +431,7 @@ class DarknetController():
             if drawDets:
                 detEval.drawDetections(outPath, imageList, groundtruths, predictions, resultDict['TPByIndex'])
 
-        return groundtruths, extractedPreds
+        return imageList, groundtruths, extractedPreds
 
     def _parseDarknetJson(self, jsonFile, imageSizes=None):
         detections = []
