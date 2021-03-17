@@ -44,18 +44,19 @@ class DarknetController():
 
         return dataFile, weightsPath
 
-    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64):
+    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64, maxBatches=None):
 
-        # calculate max batches (recommended here: https://github.com/AlexeyAB/darknet)
-        potentialNum = numClasses*2000
-        maxBatches = self.defaultMaxBatches
+        if maxBatches is None:
+            # calculate max batches (recommended here: https://github.com/AlexeyAB/darknet)
+            potentialNum = numClasses*2000
+            maxBatches = self.defaultMaxBatches
 
-        if (potentialNum > 6000) and (potentialNum > trainInfo["NumImages"]):
-            maxBatches = potentialNum
-        else:
-            # make sure we train for more than the amount of images we have
-            while maxBatches < trainInfo["NumImages"]:
-                maxBatches = maxBatches + self.defaultMaxBatches
+            if (potentialNum > 6000) and (potentialNum > trainInfo["NumImages"]):
+                maxBatches = potentialNum
+            else:
+                # make sure we train for more than the amount of images we have
+                while maxBatches < trainInfo["NumImages"]:
+                    maxBatches = maxBatches + self.defaultMaxBatches
 
         # create new cfg file
         ogCfgName = ogCfg.split("/")[-1]
@@ -103,7 +104,15 @@ class DarknetController():
 
         return cfgFile
 
-    def train(self, outputPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=False):
+    def train_multiGPU(self, outputPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=[0], doMap=True, dontShow=False):
+        self.train(outputPath, dataFile, cfgFile1, preWeights, gpu=gpus[0], doMap=False, dontShow=False, printTime=False)
+        weightsPath = os.path.join(outputPath, "weights")
+        weights = [os.path.join(weightsPath, x) for x in os.listdir(weightsPath) if "_1000.weights" in x]
+        weights = weights[0]
+        self.train(outputPath, dataFile, cfgFile2, weights, gpu=",".join(gpus), doMap=True, dontShow=False)
+        return
+
+    def train(self, outputPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=False, printTime=True):
         outputPath = os.path.abspath(outputPath)
         dataFile = os.path.abspath(dataFile)
         cfgFile = os.path.abspath(cfgFile)
@@ -148,7 +157,7 @@ class DarknetController():
 
         # go back to original directory
         os.chdir(currPath)
-        print("Training finished in {} seconds".format(totalTime))
+        if printTime: print("Training finished in {} seconds".format(totalTime))
         return
 
     def validate(self, outputPath, weightsPath, dataFile, cfgFile):
@@ -307,6 +316,11 @@ class DarknetController():
         if "max_batches" in attrDict:
             attrDict["max_batches"] = str(maxBatches)
 
+        # this should only happen when we're training multiGPU
+        if maxBatches == 1000:
+            if "burn_in" in attrDict:
+                attrDict["burn_in"] = "4000"
+
         if "steps" in attrDict:
             numSteps = int(np.floor(maxBatches/self.defaultMaxBatches) * 2)
             steps = []
@@ -334,7 +348,6 @@ class DarknetController():
     def _modifyConvParams(self, attrDict, numClasses, numCurrMasks):
         # calculate number of filters for conv before each yolo head
         # recommended here: https://github.com/AlexeyAB/darknet#how-to-train-to-detect-your-custom-objects
-        #TODO: make this agnostic to the number of masks in the yolo head
         if "filters" in attrDict:
             numFilters = (numClasses + 5)*numCurrMasks
             attrDict["filters"] = str(numFilters)
