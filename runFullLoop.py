@@ -20,7 +20,7 @@ def main():
 
     cfgFile = None
     if len(args.gpus) > 1:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(args.gpus)
+        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join([str(x) for x in args.gpus])
         gpus = [i for i in range(len(args.gpus))]
         cfgFile1 = dc.createCfgFile(outPath, datasetName + "_first1000", ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=1000)
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument('--dont_show', action='store_true', help="Don't show training plot (necessary for domino)")
     parser.add_argument('--drawDets', action='store_true', help="Draw detections for each weights file")
     parser.add_argument('--subdivisions', type=int, default=64, help="Number of subdivisions")
-    parser.add_argument('--pt', '--pretrainWeights', default=None, help="Path to pretrained weights for initialization")
+    parser.add_argument('-pt', '--pretrainWeights', default=None, help="Path to pretrained weights for initialization")
     parser.add_argument('--classes', nargs='+', type=str, default=["target"], help="Names of classes (must be in order of class index)")
     parser.add_argument('--gpus', default=[0], type=int, nargs='+', help="GPUs available")
 

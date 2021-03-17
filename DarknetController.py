@@ -105,11 +105,11 @@ class DarknetController():
         return cfgFile
 
     def train_multiGPU(self, outputPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=[0], doMap=True, dontShow=False):
-        self.train(outputPath, dataFile, cfgFile1, preWeights, gpu=gpus[0], doMap=False, dontShow=False, printTime=False)
+        self.train(outputPath, dataFile, cfgFile1, preWeights, gpu=gpus[0], doMap=False, dontShow=dontShow, printTime=False)
         weightsPath = os.path.join(outputPath, "weights")
         weights = [os.path.join(weightsPath, x) for x in os.listdir(weightsPath) if "_1000.weights" in x]
         weights = weights[0]
-        self.train(outputPath, dataFile, cfgFile2, weights, gpu=",".join(gpus), doMap=True, dontShow=False)
+        self.train(outputPath, dataFile, cfgFile2, weights, gpu=",".join(gpus), doMap=True, dontShow=dontShow)
         return
 
     def train(self, outputPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=False, printTime=True):
@@ -321,7 +321,7 @@ class DarknetController():
             if "burn_in" in attrDict:
                 attrDict["burn_in"] = "4000"
 
-        if "steps" in attrDict:
+        if "steps" in attrDict and maxBatches != 1000:
             numSteps = int(np.floor(maxBatches/self.defaultMaxBatches) * 2)
             steps = []
             for i in range(numSteps):
