@@ -169,7 +169,7 @@ class DarknetController():
 
         # run the map command for each weight file
         for weights in weightFiles:
-
+            if "_first1000" in weights: continue # skip the first1000 weights saved from the multi-gpu process
             # make txt file and directory for results
             weightsName =  weights.split("/")[-1].replace(".weights", "")
             txtName = weightsName + "_results.txt"
@@ -198,6 +198,8 @@ class DarknetController():
         predJsons = []
         # run the test command for each weight file
         for weights in weightFiles:
+            if "_first1000" in weights: continue  # skip the first1000 weights saved from the multi-gpu process
+
             # make json file and get directory for results
             weightsName = weights.split("/")[-1].replace(".weights", "")
             jsonName = weightsName + "_predictions.json"
@@ -416,14 +418,14 @@ class DarknetController():
             stats.append(currStat)
         return stats[0:3]
 
-    def evalDarknetJsons(self, predJsons, testTxt, drawDets=False):
+    def evalDarknetJsons(self, predJsons, testTxt, drawDets=False, noDualEval=False):
         extractedPreds = dict()
         groundtruths, imageList, imageSizes = self._parseGt(testTxt)
         for jsonFile in tqdm(predJsons, desc="Evaluating Darknet Preds"):
             outPath, jsonName = os.path.split(jsonFile)
             jsonName = jsonName.replace(".json", "")
             predictions = self._parseDarknetJson(jsonFile, imageSizes)
-            resultDict, pDet, far = detEval.evalMetrics(groundtruths, predictions, numImages=len(imageSizes))
+            resultDict, pDet, far = detEval.evalMetrics(groundtruths, predictions, numImages=len(imageSizes), noDualEval=noDualEval)
             extractedPreds[jsonFile] = (predictions, resultDict['TPByIndex'])
             detEval.drawPlots(resultDict['ThreshDict'], len(groundtruths), outputPath=outPath, outputName=jsonName,
                       numImages=len(imageSizes))

@@ -37,11 +37,11 @@ def main():
 
     resultsPath, weightFiles = dc.validate(outPath, weightsPath, dataFile, cfgFile)
     predJsons = dc.test(resultsPath, weightFiles, dataFile, cfgFile, testTxt)
-    imageList, groundtruths, extractedPreds = dc.evalDarknetJsons(predJsons, testTxt, drawDets=args.drawDets)
+    imageList, groundtruths, extractedPreds = dc.evalDarknetJsons(predJsons, testTxt, drawDets=args.drawDets, noDualEval=args.atdTypeEval)
 
     # TODO: explainable AI stuff automatically
-    with open(os.path.join(outPath, "evaluateGTPredVars.p"), "wb") as f:
-        pickle.dump([imageList, groundtruths, extractedPreds], f)
+    with open(os.path.join(outPath, "allVars.p"), "wb") as f:
+        pickle.dump(locals(), f)
 
     return
 
@@ -61,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('-pt', '--pretrainWeights', default=None, help="Path to pretrained weights for initialization")
     parser.add_argument('--classes', nargs='+', type=str, default=["target"], help="Names of classes (must be in order of class index)")
     parser.add_argument('--gpus', default=[0], type=int, nargs='+', help="GPUs available")
+    parser.add_argument('--atdTypeEval', action='store_true', help="Run evaluation without marking multiple TP dets as incorrect.")
 
     args = parser.parse_args()
     main()

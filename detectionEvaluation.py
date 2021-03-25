@@ -129,7 +129,7 @@ def setupThreshDict():
 
     return threshDict
 
-def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5):
+def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5, noDualEval=False):
     """Get the metrics used by the VOC Pascal 2012 challenge.
     Get
     Args:
@@ -211,10 +211,11 @@ def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5):
                 if matchingThresh is not None:
                     threshDict[matchingThresh]['TP'] += 1
             else:
-                FP[d] = 1
-                # mark fp for thresh
-                if matchingThresh is not None:
-                    threshDict[matchingThresh]['FP'] += 1
+                if not noDualEval:
+                    FP[d] = 1
+                    # mark fp for thresh
+                    if matchingThresh is not None:
+                        threshDict[matchingThresh]['FP'] += 1
         # - A detected "cat" is overlaped with a GT "cat" with IOU >= IOUThreshold.
         else:
             FP[d] = 1  # count as false positive
