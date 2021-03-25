@@ -20,8 +20,9 @@ def main():
 
     cfgFile = None
     if len(args.gpus) > 1:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join([str(x) for x in args.gpus])
-        gpus = [i for i in range(len(args.gpus))]
+        args.gpus = [str(x) for x in args.gpus]
+        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(args.gpus)
+        gpus = [str(i) for i in range(len(args.gpus))]
         cfgFile1 = dc.createCfgFile(outPath, datasetName + "_first1000", ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=1000)
         cfgFile2 = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
@@ -29,9 +30,10 @@ def main():
         dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, doMap=True, dontShow=args.dont_show)
         cfgFile = cfgFile2
     else:
+        gpu = args.gpus[0]
         cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions)
-        dc.train(outPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=args.dont_show)
+        dc.train(outPath, dataFile, cfgFile, preWeights, gpu=gpu, doMap=True, dontShow=args.dont_show)
 
     resultsPath, weightFiles = dc.validate(outPath, weightsPath, dataFile, cfgFile)
     predJsons = dc.test(resultsPath, weightFiles, dataFile, cfgFile, testTxt)
