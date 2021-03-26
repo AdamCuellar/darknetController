@@ -173,6 +173,7 @@ def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5, noDualEval=
     npos = len(gts)
 
     # sort detections by decreasing confidence
+    ogDectIdxs = sorted(list(range(len(dects))), key=lambda conf: dects[conf][2], reverse=True)
     dects = sorted(dects, key=lambda conf: conf[2], reverse=True)
     TP = np.zeros(len(dects))
     FP = np.zeros(len(dects))
@@ -228,7 +229,14 @@ def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5, noDualEval=
     acc_TP = np.cumsum(TP)
     rec = acc_TP / npos
     prec = np.divide(acc_TP, (acc_FP + acc_TP))
-
+    
+    #TODO: do this using numpy so its faster?
+    ogIdxTp = [None] * len(TP)
+    ogIdxFp = [None] * len(FP)
+    for ogIdx, tpVal, fpVal in zip(ogDectIdxs, TP, FP):
+        ogIdxTp[ogIdx] = tpVal
+        ogIdxFp[ogIdx] = fpVal
+    
     # add result in the dictionary to be returned
     r = {
         'Precision': prec,
@@ -237,8 +245,8 @@ def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5, noDualEval=
         'Total TP': np.sum(TP),
         'Total FP': np.sum(FP),
         'ThreshDict': threshDict,
-        'TPByIndex':TP,
-        'FPByIndex':FP
+        'TPByIndex':ogIdxTp,
+        'FPByIndex':ogIdxFp
     }
     total_gt += npos
     pDet += np.sum(TP)
