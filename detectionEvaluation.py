@@ -237,7 +237,8 @@ def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5, noDualEval=
         'Total TP': np.sum(TP),
         'Total FP': np.sum(FP),
         'ThreshDict': threshDict,
-        'TPByIndex':TP
+        'TPByIndex':TP,
+        'FPByIndex':FP
     }
     total_gt += npos
     pDet += np.sum(TP)
@@ -267,10 +268,11 @@ def drawBoundingBox(img, objects, color, confThresh, putText=False):
 
     return img
 
-def drawDetections(outputPath, imageList, groundtruths, predictions, tpByIndex):
+def drawDetections(outputPath, imageList, groundtruths, predictions, tpByIndex, fpByIndex):
     tpColor = (0, 255, 0) # green
     fpColor = (0, 0, 255) # red
     gtColor = (255,255,255) # white
+    commonPath = os.path.commonpath(imageList) + "/"
     drawnPath = os.path.join(outputPath, "drawnDets")
     os.makedirs(drawnPath, exist_ok=True)
 
@@ -291,10 +293,13 @@ def drawDetections(outputPath, imageList, groundtruths, predictions, tpByIndex):
             if frameIdx not in tpByFrame:
                 tpByFrame[frameIdx] = list()
             tpByFrame[frameIdx].append(pred)
-        else:
+        elif fpByIndex[idx]:
             if frameIdx not in fpByFrame:
                 fpByFrame[frameIdx] = list()
             fpByFrame[frameIdx].append(pred)
+        else:
+            pass
+            # this is blank cause sometimes a prediction can be a duplicate (so not wrong, but also not another TP)
 
     for idx, imgPath in enumerate(imageList):
         imgDir, imgName = os.path.split(imgPath)
@@ -315,6 +320,16 @@ def drawDetections(outputPath, imageList, groundtruths, predictions, tpByIndex):
         img = drawBoundingBox(img, currGts, gtColor, confThresh=0)
         img = drawBoundingBox(img, tps, tpColor, confThresh=0, putText=True)
         img = drawBoundingBox(img, fps, fpColor, confThresh=0, putText=True)
-        cv2.imwrite(os.path.join(drawnPath, imgName), img)
+
+        # check for sub directories in case file names are the same
+        subDir = imgPath.replace(commonPath, "").replace(imgName, "")
+        if len(subDir) > 0:
+            tempPath = os.path.join(drawnPath, subDir)
+            os.makedirs(tempPath, exist_ok=True)
+            currOutPath = os.path.join(tempPath, imgName)
+        else:
+            currOutPath = os.path.join(drawnPath, imgName)
+
+        cv2.imwrite(currOutPath, img)
 
     return

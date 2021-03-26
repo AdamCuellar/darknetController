@@ -426,12 +426,12 @@ class DarknetController():
             jsonName = jsonName.replace(".json", "")
             predictions = self._parseDarknetJson(jsonFile, imageSizes)
             resultDict, pDet, far = detEval.evalMetrics(groundtruths, predictions, numImages=len(imageSizes), noDualEval=noDualEval)
-            extractedPreds[jsonFile] = (predictions, resultDict['TPByIndex'])
+            extractedPreds[jsonFile] = (predictions, resultDict['TPByIndex'], resultDict['FPByIndex'])
             detEval.drawPlots(resultDict['ThreshDict'], len(groundtruths), outputPath=outPath, outputName=jsonName,
                       numImages=len(imageSizes))
 
             if drawDets:
-                detEval.drawDetections(outPath, imageList, groundtruths, predictions, resultDict['TPByIndex'])
+                detEval.drawDetections(outPath, imageList, groundtruths, predictions, resultDict['TPByIndex'], resultDict['FPByIndex'])
 
         return imageList, groundtruths, extractedPreds
 
