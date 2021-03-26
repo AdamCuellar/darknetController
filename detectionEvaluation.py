@@ -318,8 +318,8 @@ def drawDetections(outputPath, imageList, groundtruths, predictions, tpByIndex, 
 
         # draw bounding boxes
         img = drawBoundingBox(img, currGts, gtColor, confThresh=0)
-        img = drawBoundingBox(img, tps, tpColor, confThresh=0, putText=True)
-        img = drawBoundingBox(img, fps, fpColor, confThresh=0, putText=True)
+        img = drawBoundingBox(img, tps, tpColor, confThresh=0.5, putText=True)
+        img = drawBoundingBox(img, fps, fpColor, confThresh=0.5, putText=True)
 
         # check for sub directories in case file names are the same
         subDir = imgPath.replace(commonPath, "").replace(imgName, "")
