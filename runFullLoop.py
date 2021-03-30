@@ -30,7 +30,10 @@ def main():
         dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, doMap=True, dontShow=args.dont_show)
         cfgFile = cfgFile2
     else:
+        # make the selected gpu the only one darknet can see, that way we can use it for all steps train/test/validate
         gpu = args.gpus[0]
+        os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
+        gpu = 0
         cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions)
         dc.train(outPath, dataFile, cfgFile, preWeights, gpu=gpu, doMap=True, dontShow=args.dont_show)
@@ -40,8 +43,21 @@ def main():
     imageList, groundtruths, extractedPreds = dc.evalDarknetJsons(predJsons, testTxt, drawDets=args.drawDets, noDualEval=args.atdTypeEval)
 
     # TODO: explainable AI stuff automatically
+    localVars = {"trainInfo":trainInfo,
+                 "testInfo":testInfo,
+                 "namesFile":namesFile,
+                 "dataFile":dataFile,
+                 "weightsPath":weightsPath,
+                 "cfgFile":cfgFile,
+                 "resultsPath":resultsPath,
+                 "weightFiles":weightFiles,
+                 "predJsons":predJsons,
+                 "imageList":imageList,
+                 "groundtruths":groundtruths,
+                 "extractedPreds":extractedPreds}
+
     with open(os.path.join(outPath, "allVars.p"), "wb") as f:
-        pickle.dump(locals(), f)
+        pickle.dump(localVars, f)
 
     return
 
