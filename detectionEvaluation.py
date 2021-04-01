@@ -186,7 +186,7 @@ def evalMetrics(groundtruths, detections, numImages, iou_thresh=0.5, noDualEval=
     # Loop through detections
     for d in range(len(dects)):
         thresholds = sorted(threshDict.keys())
-        matchingThresh = [x for idx, x in enumerate(thresholds) if x <= dects[d][2] < thresholds[idx+1]]
+        matchingThresh = [x for idx, x in enumerate(thresholds) if x <= dects[d][2] < thresholds[idx+1]] # TODO: might need to use numpy.isclose for the = 
         matchingThresh = matchingThresh[0] if len(matchingThresh) != 0 else None
 
         # Find ground truth image
