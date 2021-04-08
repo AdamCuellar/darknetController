@@ -44,7 +44,7 @@ class DarknetController():
 
         return dataFile, weightsPath
 
-    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64, maxBatches=None):
+    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64, maxBatches=None, burn_in=False):
 
         if maxBatches is None:
             # calculate max batches (recommended here: https://github.com/AlexeyAB/darknet)
@@ -84,7 +84,7 @@ class DarknetController():
             nextHeader = newCfg[idx+1][0] if idx+1 < len(newCfg) else None
 
             if "net" in header:
-                self._modifyNetParams(attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches)
+                self._modifyNetParams(attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches, burn_in=burn_in)
 
             elif "convolution" in header and "yolo" in nextHeader:
                 # modify the yolo params first, cause the filters depends on the yolo head masks
@@ -104,10 +104,10 @@ class DarknetController():
 
         return cfgFile
 
-    def train_multiGPU(self, outputPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=[0], doMap=True, dontShow=False):
+    def train_multiGPU(self, outputPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=[0], burnAmount=1000, doMap=True, dontShow=False):
         self.train(outputPath, dataFile, cfgFile1, preWeights, gpu=gpus[0], doMap=False, dontShow=dontShow, printTime=False)
         weightsPath = os.path.join(outputPath, "weights")
-        weights = [os.path.join(weightsPath, x) for x in os.listdir(weightsPath) if "_1000.weights" in x]
+        weights = [os.path.join(weightsPath, x) for x in os.listdir(weightsPath) if "_burn_in" in x and "_{}.weights".format(burnAmount) in x]
         weights = weights[0]
         self.train(outputPath, dataFile, cfgFile2, weights, gpu=",".join(gpus), doMap=True, dontShow=dontShow)
         return
@@ -302,7 +302,7 @@ class DarknetController():
         value = splitLine[-1].strip()
         return attribute, value
 
-    def _modifyNetParams(self, attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches):
+    def _modifyNetParams(self, attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches, burn_in=True):
         if "subdivisions" in attrDict:
             attrDict["subdivisions"] = str(subdivisions)
 
@@ -319,11 +319,11 @@ class DarknetController():
             attrDict["max_batches"] = str(maxBatches)
 
         # this should only happen when we're training multiGPU
-        if maxBatches == 1000:
+        if burn_in:
             if "burn_in" in attrDict:
-                attrDict["burn_in"] = "4000"
+                attrDict["burn_in"] = str(maxBatches)
 
-        if "steps" in attrDict and maxBatches != 1000:
+        if "steps" in attrDict and not burn_in:
             numSteps = int(np.floor(maxBatches/self.defaultMaxBatches) * 2)
             steps = []
             for i in range(numSteps):

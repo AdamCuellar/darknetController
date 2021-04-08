@@ -20,14 +20,15 @@ def main():
 
     cfgFile = None
     if len(args.gpus) > 1:
+        tempMaxBatches = len(args.gpus) * 1000
         args.gpus = [str(x) for x in args.gpus]
         os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(args.gpus)
         gpus = [str(i) for i in range(len(args.gpus))]
-        cfgFile1 = dc.createCfgFile(outPath, datasetName + "_first1000", ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
-                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=1000)
+        cfgFile1 = dc.createCfgFile(outPath, datasetName + "_burn_in", ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
+                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=tempMaxBatches, burn_in=True)
         cfgFile2 = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
-                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions)
-        dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, doMap=True, dontShow=args.dont_show)
+                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches)
+        dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, burnAmount=tempMaxBatches, doMap=True, dontShow=args.dont_show)
         cfgFile = cfgFile2
     else:
         # make the selected gpu the only one darknet can see, that way we can use it for all steps train/test/validate
@@ -35,7 +36,7 @@ def main():
         os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
         gpu = 0
         cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
-                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions)
+                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches)
         dc.train(outPath, dataFile, cfgFile, preWeights, gpu=gpu, doMap=True, dontShow=args.dont_show)
 
     resultsPath, weightFiles = dc.validate(outPath, weightsPath, dataFile, cfgFile)
@@ -78,6 +79,7 @@ if __name__ == "__main__":
     parser.add_argument('--classes', nargs='+', type=str, default=["target"], help="Names of classes (must be in order of class index)")
     parser.add_argument('--gpus', default=[0], type=int, nargs='+', help="GPUs available")
     parser.add_argument('--atdTypeEval', action='store_true', help="Run evaluation without marking multiple TP dets as incorrect.")
+    parser.add_argument('--maxBatches', default=None, type=int, help="Max number of iterations for training.")
 
     args = parser.parse_args()
     main()
