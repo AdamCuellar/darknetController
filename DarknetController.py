@@ -325,7 +325,7 @@ class DarknetController():
 
         if "steps" in attrDict and not burn_in:
             # TODO: changing the learning rate multiple times isn't working well, for COCO they only do it twice. Explore other CFG's to see what the best option is
-            numSteps = int(np.floor(maxBatches/self.defaultMaxBatches) * 2)
+            numSteps = 2 #int(np.floor(maxBatches/self.defaultMaxBatches) * 2)
             steps = []
             for i in range(numSteps):
                 currPercent = round(1.0 - 0.1*(i+1), 2)
