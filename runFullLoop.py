@@ -80,6 +80,8 @@ if __name__ == "__main__":
     parser.add_argument('--gpus', default=[0], type=int, nargs='+', help="GPUs available")
     parser.add_argument('--atdTypeEval', action='store_true', help="Run evaluation without marking multiple TP dets as incorrect.")
     parser.add_argument('--maxBatches', default=None, type=int, help="Max number of iterations for training.")
+    parser.add_argument('--numInstances', default=1, type=int, help="Number of times you want to run the same experiment")
 
     args = parser.parse_args()
-    main()
+    for i in range(args.numInstances):
+        main()
