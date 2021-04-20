@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from scipy.cluster.vq import kmeans
+import math
 
 def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
     model, layers, strides = runModel(cfg)
@@ -16,6 +17,11 @@ def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
     scaledBoxes[:,2] *= img_size[1]
     scaledBoxes[:,3] *= img_size[0]
     datasetMinArea = np.min(scaledBoxes[:,2] * scaledBoxes[:,3])
+
+    if all(x > datasetMinArea for x in theoreticalMinAreas):
+        print("WARNING: The current model *.cfg has a theoretical minimum detection area of {}, the smallest object "
+              "in the training set has an area of {}. Modify the number of subsampling layers to increase "
+              "the theoretical minimum detection area...".format(np.min(theoreticalMinAreas), datasetMinArea))
 
     # copied from pytorch version as well, but we only use it for k-means once
     thr = 1.0/thr
@@ -76,23 +82,26 @@ def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
 
         copiedK = np.delete(copiedK, removeIdxs, axis=0)
 
-    # fill empty anchors with original anchors
-    oldCopy = oldAnchors.copy()
+    # TODO: Clean up
+    # fill empty anchors with minimum area for the respective yolo head
+    # oldCopy = oldAnchors.copy()
     masks = dict()
     lastLength = 0
     for yoloLayer, anchorList in newAnchors.items():
         if len(anchorList) == 0:
-            copiedOldCopy = oldCopy.copy()
-            removeIdxs = []
-            currMin = theoreticalMinAreas[yoloLayer-1] if yoloLayer-1 >= 0 else 0
-            currMax = theoreticalMinAreas[yoloLayer+1] if yoloLayer+1 < len(theoreticalMinAreas) else sys.float_info.max
-            for idx, anchor in enumerate(copiedOldCopy):
-                anchor = np.rint(anchor)
-                currArea = anchor[0] * anchor[1]
-                if currArea < currMax and currArea > currMin:
-                    anchorList.append(anchor)
-                    removeIdxs.append(idx)
-            oldCopy = np.delete(oldCopy, removeIdxs, axis=0)
+            currMin = int(math.floor(np.sqrt(theoreticalMinAreas[yoloLayer])/10.0)) * 10
+            anchorList.append(np.array([currMin, currMin]))
+            # copiedOldCopy = oldCopy.copy()
+            # removeIdxs = []
+            # currMin = theoreticalMinAreas[yoloLayer-1] if yoloLayer-1 >= 0 else 0
+            # currMax = theoreticalMinAreas[yoloLayer+1] if yoloLayer+1 < len(theoreticalMinAreas) else sys.float_info.max
+            # for idx, anchor in enumerate(copiedOldCopy):
+            #     anchor = np.rint(anchor)
+            #     currArea = anchor[0] * anchor[1]
+            #     if currArea < currMax and currArea > currMin:
+            #         anchorList.append(anchor)
+            #         removeIdxs.append(idx)
+            # oldCopy = np.delete(oldCopy, removeIdxs, axis=0)
 
         masks[yoloLayer] = ",".join([str(x+lastLength) for x in range(len(anchorList))])
         lastLength += len(anchorList)
