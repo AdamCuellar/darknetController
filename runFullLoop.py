@@ -14,7 +14,7 @@ def main():
     preWeights = args.pretrainWeights
     ogCfg = args.cfg
     outPath = os.path.join(os.getcwd(), datasetName + "_{}".format(time.strftime("%Y%m%d-%H%M%S")))
-    trainInfo, testInfo = dc.verifyDataset(outPath, trainTxt=trainTxt, testTxt=testTxt)
+    trainInfo, testInfo = dc.verifyDataset(outPath, trainTxt=trainTxt, testTxt=testTxt, netShape=[args.trainHeight, args.trainWidth])
     namesFile = dc.createNamesFile(outPath, datasetName=datasetName, classes=classes)
     dataFile, weightsPath = dc.createDataFile(outPath, datasetName, trainTxt, testTxt, namesFile, len(classes))
 
@@ -25,9 +25,9 @@ def main():
         os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(args.gpus)
         gpus = [str(i) for i in range(len(args.gpus))]
         cfgFile1 = dc.createCfgFile(outPath, datasetName + "_burn_in", ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
-                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=tempMaxBatches, burn_in=True)
+                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=tempMaxBatches, burn_in=True, auto_anchors=args.autoAnchors)
         cfgFile2 = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
-                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches)
+                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches, auto_anchors=args.autoAnchors)
         dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, burnAmount=tempMaxBatches, doMap=True, dontShow=args.dont_show)
         cfgFile = cfgFile2
     else:
@@ -36,7 +36,7 @@ def main():
         os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
         gpu = 0
         cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
-                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches)
+                                   trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches, auto_anchors=args.autoAnchors)
         dc.train(outPath, dataFile, cfgFile, preWeights, gpu=gpu, doMap=True, dontShow=args.dont_show)
 
     resultsPath, weightFiles = dc.validate(outPath, weightsPath, dataFile, cfgFile)
@@ -81,6 +81,8 @@ if __name__ == "__main__":
     parser.add_argument('--atdTypeEval', action='store_true', help="Run evaluation without marking multiple TP dets as incorrect.")
     parser.add_argument('--maxBatches', default=None, type=int, help="Max number of iterations for training.")
     parser.add_argument('--numInstances', default=1, type=int, help="Number of times you want to run the same experiment")
+    parser.add_argument('--autoAnchors', default=0, type=int, help="Use 1 for auto anchors calculated like PyTorch Implementation,"
+                                                                   " use 2 for how Alexey recommends on GitHub")
 
     args = parser.parse_args()
     for i in range(args.numInstances):

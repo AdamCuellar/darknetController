@@ -6,19 +6,22 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+from PIL import Image
 import detectionEvaluation as detEval
 import json
 from tqdm import tqdm
+from autoAnchors import autoAnchors_pytorch, autoAnchors_darknet
 
 class DarknetController():
     def __init__(self, darknetPath):
         self.darknetPath = os.path.abspath(darknetPath)
         self.defaultMaxBatches = 10000
+        self.anchorInfo = None
 
-    def verifyDataset(self, outputPath, trainTxt, testTxt):
+    def verifyDataset(self, outputPath, trainTxt, testTxt, netShape):
         os.makedirs(outputPath, exist_ok=True)
-        trainInfo = self._verifyDataHelper(outputPath, trainTxt)
-        testInfo = self._verifyDataHelper(outputPath, testTxt)
+        trainInfo = self._verifyDataHelper(outputPath, trainTxt, netShape)
+        testInfo = self._verifyDataHelper(outputPath, testTxt, netShape)
         return trainInfo, testInfo
 
     def createNamesFile(self, outputPath, datasetName, classes):
@@ -44,7 +47,7 @@ class DarknetController():
 
         return dataFile, weightsPath
 
-    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64, maxBatches=None, burn_in=False):
+    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64, maxBatches=None, burn_in=False, auto_anchors=0):
 
         if maxBatches is None:
             # calculate max batches (recommended here: https://github.com/AlexeyAB/darknet)
@@ -80,6 +83,21 @@ class DarknetController():
 
         # copy and modify cfg attributes as necessary
         newCfg = copy.deepcopy(ogCfgBlocks)
+
+        anchors, masks, numAnchors = None, None, None
+        if auto_anchors > 0:
+            if self.anchorInfo is not None:
+                anchors, masks, numAnchors = self.anchorInfo
+            elif auto_anchors == 1:
+                # TODO: change this to return the same as below
+                pass
+                # anchors = autoAnchors_pytorch(ogCfg, trainInfo["Shapes"], trainInfo["Boxes"], img_size=[trainHeight, trainWidth])
+            elif auto_anchors == 2:
+                anchors, masks, numAnchors = autoAnchors_darknet(ogCfg, trainInfo["Shapes"], trainInfo["Boxes"], img_size=[trainHeight, trainWidth])
+
+        self.anchorInfo = (anchors, masks, numAnchors)
+
+        numYolo = 0
         for idx, (header, attrDict) in enumerate(newCfg):
             nextHeader = newCfg[idx+1][0] if idx+1 < len(newCfg) else None
 
@@ -89,10 +107,11 @@ class DarknetController():
             elif "convolution" in header and "yolo" in nextHeader:
                 # modify the yolo params first, cause the filters depends on the yolo head masks
                 yoloDict = newCfg[idx+1][1]
-                self._modifyYoloParams(yoloDict, numClasses)
+                self._modifyYoloParams(yoloDict, numClasses, anchors=anchors, masks=masks[numYolo], numAnchors=numAnchors)
 
                 numMasks = len(yoloDict["mask"].split(","))
                 self._modifyConvParams(attrDict, numClasses, numMasks)
+                numYolo += 1
 
         # write out new cfg
         with open(cfgFile, "w") as f:
@@ -109,7 +128,7 @@ class DarknetController():
         weightsPath = os.path.join(outputPath, "weights")
         weights = [os.path.join(weightsPath, x) for x in os.listdir(weightsPath) if "_burn_in" in x and "_{}.weights".format(burnAmount) in x]
         weights = weights[0]
-        self.train(outputPath, dataFile, cfgFile2, weights, gpu=",".join(gpus), doMap=True, dontShow=dontShow)
+        self.train(outputPath, dataFile, cfgFile2, weights, gpu=",".join(gpus), doMap=doMap, dontShow=dontShow)
         return
 
     def train(self, outputPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=False, printTime=True):
@@ -169,7 +188,7 @@ class DarknetController():
 
         # run the map command for each weight file
         for weights in weightFiles:
-            if "_first1000" in weights: continue # skip the first1000 weights saved from the multi-gpu process
+            if "_burn_in" in weights: continue # skip the burn_in weights saved from the multi-gpu process
             # make txt file and directory for results
             weightsName =  weights.split("/")[-1].replace(".weights", "")
             txtName = weightsName + "_results.txt"
@@ -198,7 +217,7 @@ class DarknetController():
         predJsons = []
         # run the test command for each weight file
         for weights in weightFiles:
-            if "_first1000" in weights: continue  # skip the first1000 weights saved from the multi-gpu process
+            if "_burn_in" in weights: continue  # skip the burn_in weights saved from the multi-gpu process
 
             # make json file and get directory for results
             weightsName = weights.split("/")[-1].replace(".weights", "")
@@ -223,11 +242,13 @@ class DarknetController():
     def drawActivations(self):
         pass
 
-    def _verifyDataHelper(self, outputPath, txtFile):
+    def _verifyDataHelper(self, outputPath, txtFile, netShape):
 
         classes = set()
         badImages = []
         badText = []
+        boxes = []
+        shapes = []
 
         # read file
         with open(txtFile, "r") as f:
@@ -236,6 +257,10 @@ class DarknetController():
         # iterate through image paths
         for imgPath in imgPaths:
             imgPath = imgPath.strip()
+            img = Image.open(imgPath) # this reads the headers of the file without actually loading the image
+            imgShape = img.size
+            del img
+            shapes.append([imgShape[1], imgShape[0]])
 
             # check if the image exists
             if not os.path.exists(imgPath):
@@ -254,9 +279,11 @@ class DarknetController():
                 for truth in truthLines:
                     line = truth.strip().split(" ")
                     line = [float(x) for x in line]
+                    box = line[1:]
+                    boxes.append(box.copy())
                     classes.add(line[0])
-                    if any(x for x in line[1:] if x > 1.0):
-                        badText.append("BBOX ATTRIBUTE > 1: {}".format(txtTruth))
+                    if any(x for x in box if x > 1.0 or x < 0):
+                        badText.append("BBOX ATTRIBUTE > 1 or < 0: {}".format(txtTruth))
             else:
                 badText.append("MISSING: {}".format(txtTruth))
 
@@ -265,6 +292,10 @@ class DarknetController():
         badTextTxt = os.path.join(outputPath, txtName.replace(".txt", ".badTxt"))
         numBadImg = len(badImages)
         numBadTxt = len(badText)
+
+        # check truth sizes
+        boxes = np.asarray(boxes)
+        areas = (boxes[:, 2] * netShape[0]) * (boxes[:, 3] * netShape[1])
 
         if numBadImg > 0:
             print("WARNING: Found {} bad images in {}. Recording to {}".format(len(badImages), txtFile, badImgTxt))
@@ -279,10 +310,17 @@ class DarknetController():
         print("Found in {}:".format(txtFile))
         print("\tTotal Images: {}".format(len(imgPaths)))
         print("\tTotal Classes: {}".format(len(classes)))
+        print("\tMinimum BBox Area (by Network Input): {}".format(areas.min()))
+        print("\tMaximum BBox Area (by Network Input): {}".format(areas.max()))
+        print("\tMean BBox Area (by Network Input): {}".format(areas.mean()))
         print()
 
         infoDict = {"NumImages":len(imgPaths),
-                    "NumClasses":len(classes)}
+                    "NumClasses":len(classes),
+                    "MinArea":areas.min(),
+                    "MaxArea":areas.max(),
+                    "Boxes":boxes,
+                    "Shapes":np.asarray(shapes)}
 
         return infoDict
 
@@ -357,8 +395,17 @@ class DarknetController():
             attrDict["filters"] = str(numFilters)
         return
 
-    def _modifyYoloParams(self, attrDict, numClasses):
+    def _modifyYoloParams(self, attrDict, numClasses, anchors=None, masks=None, numAnchors=None):
         # TODO: add editing anchors automatically as well
+        if "anchors" in attrDict and anchors is not None:
+            attrDict["anchors"] = anchors
+
+        if "mask" in attrDict and masks is not None:
+            attrDict["mask"] = masks
+
+        if "num" in attrDict and numAnchors is not None:
+            attrDict["num"] = str(numAnchors)
+
         if "classes" in attrDict:
             attrDict["classes"] = str(numClasses)
         return
