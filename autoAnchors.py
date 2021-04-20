@@ -7,6 +7,16 @@ from tqdm import tqdm
 from scipy.cluster.vq import kmeans
 import math
 
+def isAscending(A):
+    A = A.tolist()
+    if A == sorted(A,reverse=False):
+        return True
+    elif A == sorted(A,reverse=True):
+        return False
+    else:
+        return None # this should never happen
+
+
 def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
     model, layers, strides = runModel(cfg)
     currAnchors = np.array([layers[l].anchors.numpy() for l in model.yolo_layers]).flatten()
@@ -17,6 +27,7 @@ def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
     scaledBoxes[:,2] *= img_size[1]
     scaledBoxes[:,3] *= img_size[0]
     datasetMinArea = np.min(scaledBoxes[:,2] * scaledBoxes[:,3])
+    yoloAscending = isAscending(strides)
 
     if all(x > datasetMinArea for x in theoreticalMinAreas):
         print("WARNING: The current model *.cfg has a theoretical minimum detection area of {}, the smallest object "
@@ -66,17 +77,31 @@ def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
     newAnchors = dict()
     for idx, minArea in enumerate(theoreticalMinAreas):
         newAnchors[idx] = []
-        if idx < len(theoreticalMinAreas) - 1:
-            currMin, currMax = minArea, theoreticalMinAreas[idx+1]
+
+        if yoloAscending:
+            if idx < len(theoreticalMinAreas) - 1:
+                currMin, currMax = minArea, theoreticalMinAreas[idx+1]
+            else:
+                currMin, currMax = minArea, sys.float_info.max
         else:
-            currMin, currMax = minArea, sys.float_info.max
+            if idx == 0:
+                currMin, currMax = minArea, sys.float_info.max
+            elif idx == len(theoreticalMinAreas) - 1:
+                currMin, currMax = sys.float_info.min, theoreticalMinAreas[idx-1]
+            else:
+                currMin, currMax = minArea, theoreticalMinAreas[idx-1]
 
         copiedCopy = copiedK.copy()
         removeIdxs = []
         for idx2, anchor in enumerate(copiedCopy):
             anchor = np.rint(anchor)
             currArea = anchor[0]*anchor[1]
-            if currArea < currMax:
+            if yoloAscending:
+                metCondition = currArea < currMax
+            else:
+                metCondition = currArea > currMin
+
+            if metCondition:
                 newAnchors[idx].append(anchor)
                 removeIdxs.append(idx2)
 
@@ -91,17 +116,6 @@ def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
         if len(anchorList) == 0:
             currMin = int(math.floor(np.sqrt(theoreticalMinAreas[yoloLayer])/10.0)) * 10
             anchorList.append(np.array([currMin, currMin]))
-            # copiedOldCopy = oldCopy.copy()
-            # removeIdxs = []
-            # currMin = theoreticalMinAreas[yoloLayer-1] if yoloLayer-1 >= 0 else 0
-            # currMax = theoreticalMinAreas[yoloLayer+1] if yoloLayer+1 < len(theoreticalMinAreas) else sys.float_info.max
-            # for idx, anchor in enumerate(copiedOldCopy):
-            #     anchor = np.rint(anchor)
-            #     currArea = anchor[0] * anchor[1]
-            #     if currArea < currMax and currArea > currMin:
-            #         anchorList.append(anchor)
-            #         removeIdxs.append(idx)
-            # oldCopy = np.delete(oldCopy, removeIdxs, axis=0)
 
         masks[yoloLayer] = ",".join([str(x+lastLength) for x in range(len(anchorList))])
         lastLength += len(anchorList)

@@ -107,7 +107,8 @@ class DarknetController():
             elif "convolution" in header and "yolo" in nextHeader:
                 # modify the yolo params first, cause the filters depends on the yolo head masks
                 yoloDict = newCfg[idx+1][1]
-                self._modifyYoloParams(yoloDict, numClasses, anchors=anchors, masks=masks[numYolo], numAnchors=numAnchors)
+                currMasks = masks[numYolo] if masks is not None else None
+                self._modifyYoloParams(yoloDict, numClasses, anchors=anchors, masks=currMasks, numAnchors=numAnchors)
 
                 numMasks = len(yoloDict["mask"].split(","))
                 self._modifyConvParams(attrDict, numClasses, numMasks)
