@@ -124,15 +124,15 @@ class DarknetController():
 
         return cfgFile
 
-    def train_multiGPU(self, outputPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=[0], burnAmount=1000, doMap=True, dontShow=False):
-        self.train(outputPath, dataFile, cfgFile1, preWeights, gpu=gpus[0], doMap=False, dontShow=dontShow, printTime=False)
+    def train_multiGPU(self, outputPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=[0], burnAmount=1000, doMap=True, dontShow=False, clear=False):
+        self.train(outputPath, dataFile, cfgFile1, preWeights, gpu=gpus[0], doMap=False, dontShow=dontShow, printTime=False, clear=clear)
         weightsPath = os.path.join(outputPath, "weights")
         weights = [os.path.join(weightsPath, x) for x in os.listdir(weightsPath) if "_burn_in" in x and "_{}.weights".format(burnAmount) in x]
         weights = weights[0]
         self.train(outputPath, dataFile, cfgFile2, weights, gpu=",".join(gpus), doMap=doMap, dontShow=dontShow)
         return
 
-    def train(self, outputPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=False, printTime=True):
+    def train(self, outputPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=False, printTime=True, clear=False):
         outputPath = os.path.abspath(outputPath)
         dataFile = os.path.abspath(dataFile)
         cfgFile = os.path.abspath(cfgFile)
@@ -159,6 +159,9 @@ class DarknetController():
 
         if dontShow:
             trainLine += "-dont_show "
+            
+        if clear:
+            trainLine += "-clear"
 
         # record output to file
         trainLine += "2>&1 | tee {}".format(recordTrainTxt)
