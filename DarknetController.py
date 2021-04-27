@@ -161,7 +161,7 @@ class DarknetController():
             trainLine += "-dont_show "
             
         if clear:
-            trainLine += "-clear"
+            trainLine += "-clear "
 
         # record output to file
         trainLine += "2>&1 | tee {}".format(recordTrainTxt)
