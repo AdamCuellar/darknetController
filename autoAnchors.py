@@ -109,7 +109,6 @@ def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
 
     # TODO: Clean up
     # fill empty anchors with minimum area for the respective yolo head
-    # oldCopy = oldAnchors.copy()
     masks = dict()
     lastLength = 0
     for yoloLayer, anchorList in newAnchors.items():

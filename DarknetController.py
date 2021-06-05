@@ -256,16 +256,18 @@ class DarknetController():
             imgPaths = f.readlines()
 
         # iterate through image paths
-        for imgPath in imgPaths:
+        for imgPath in tqdm(imgPaths, desc="Verifying Data from {}".format(txtFile.split("/")[-1])):
             imgPath = imgPath.strip()
-            img = Image.open(imgPath) # this reads the headers of the file without actually loading the image
-            imgShape = img.size
-            del img
-            shapes.append([imgShape[1], imgShape[0]])
 
             # check if the image exists
             if not os.path.exists(imgPath):
                 badImages.append("MISSING: {}".format(imgPath))
+                continue
+
+            img = Image.open(imgPath) # this reads the headers of the file without actually loading the image
+            imgShape = img.size
+            del img
+            shapes.append([imgShape[1], imgShape[0]])
 
             # get text file
             fn, ext = os.path.splitext(imgPath)
