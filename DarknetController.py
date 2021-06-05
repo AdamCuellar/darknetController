@@ -21,7 +21,10 @@ class DarknetController():
     def verifyDataset(self, outputPath, trainTxt, testTxt, netShape):
         os.makedirs(outputPath, exist_ok=True)
         trainInfo = self._verifyDataHelper(outputPath, trainTxt, netShape)
-        testInfo = self._verifyDataHelper(outputPath, testTxt, netShape)
+        if testTxt == trainTxt:
+            testInfo = copy.deepcopy(trainInfo)
+        else:
+            testInfo = self._verifyDataHelper(outputPath, testTxt, netShape)
         return trainInfo, testInfo
 
     def createNamesFile(self, outputPath, datasetName, classes):
