@@ -28,7 +28,7 @@ def main():
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=tempMaxBatches, burn_in=True, auto_anchors=args.autoAnchors)
         cfgFile2 = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches, auto_anchors=args.autoAnchors)
-        dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, burnAmount=tempMaxBatches, doMap=True, dontShow=args.dont_show)
+        dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, burnAmount=tempMaxBatches, doMap=True, dontShow=args.dont_show, clear=args.clear)
         cfgFile = cfgFile2
     else:
         # make the selected gpu the only one darknet can see, that way we can use it for all steps train/test/validate
@@ -37,7 +37,7 @@ def main():
         gpu = 0
         cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches, auto_anchors=args.autoAnchors)
-        dc.train(outPath, dataFile, cfgFile, preWeights, gpu=gpu, doMap=True, dontShow=args.dont_show)
+        dc.train(outPath, dataFile, cfgFile, preWeights, gpu=gpu, doMap=True, dontShow=args.dont_show, clear=args.clear)
 
     resultsPath, weightFiles = dc.validate(outPath, weightsPath, dataFile, cfgFile)
     predJsons = dc.test(resultsPath, weightFiles, dataFile, cfgFile, testTxt)
@@ -83,6 +83,7 @@ if __name__ == "__main__":
     parser.add_argument('--numInstances', default=1, type=int, help="Number of times you want to run the same experiment")
     parser.add_argument('--autoAnchors', default=0, type=int, help="Use 1 for auto anchors calculated like PyTorch Implementation,"
                                                                    " use 2 for how Alexey recommends on GitHub")
+    parser.add_argument('--clear', default=False, action="store_true", help="Clear the pretrained weights to start training from iteration 0.")
 
     args = parser.parse_args()
     for i in range(args.numInstances):
