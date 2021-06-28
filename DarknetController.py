@@ -11,6 +11,7 @@ import detectionEvaluation as detEval
 import json
 from tqdm import tqdm
 from autoAnchors import autoAnchors_pytorch, autoAnchors_darknet
+from general import plot_labels
 
 class DarknetController():
     def __init__(self, darknetPath):
@@ -256,13 +257,16 @@ class DarknetController():
         badText = []
         boxes = []
         shapes = []
+        labels = []
+
+        txtName = txtFile.split("/")[-1]
 
         # read file
         with open(txtFile, "r") as f:
             imgPaths = f.readlines()
 
         # iterate through image paths
-        for imgPath in tqdm(imgPaths, desc="Verifying Data from {}".format(txtFile.split("/")[-1])):
+        for imgPath in tqdm(imgPaths, desc="Verifying Data from {}".format(txtName)):
             imgPath = imgPath.strip()
 
             # check if the image exists
@@ -288,6 +292,7 @@ class DarknetController():
                 for truth in truthLines:
                     line = truth.strip().split(" ")
                     line = [float(x) for x in line]
+                    labels.append(np.asarray(line))
                     box = line[1:]
                     boxes.append(box.copy())
                     classes.add(line[0])
@@ -302,6 +307,12 @@ class DarknetController():
         numBadImg = len(badImages)
         numBadTxt = len(badText)
 
+        # plot label information
+        labels = np.concatenate(labels)
+        saveName = txtName.replace(".txt", "") + "_labels_{}.png"
+        plot_labels(labels, names=classes, save_dir=os.path.join(outputPath, saveName))
+
+        # check truth sizes
         # check truth sizes
         boxes = np.asarray(boxes)
         areas = (boxes[:, 2] * netShape[0]) * (boxes[:, 3] * netShape[1])
