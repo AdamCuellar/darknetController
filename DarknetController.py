@@ -308,7 +308,7 @@ class DarknetController():
         numBadTxt = len(badText)
 
         # plot label information
-        labels = np.concatenate(labels)
+        labels = np.stack(labels)
         saveName = txtName.replace(".txt", "") + "_labels_{}.png"
         plot_labels(labels, names=classes, save_dir=os.path.join(outputPath, saveName))
 
