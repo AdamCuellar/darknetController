@@ -1,0 +1,3 @@
+[submodule "PyTorch_YOLOv4"]
+	path = PyTorch_YOLOv4
+	url = https://github.com/AdamCuellar/PyTorch_YOLOv4.git
