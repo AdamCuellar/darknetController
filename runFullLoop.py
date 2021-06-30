@@ -1,12 +1,12 @@
 import os
 from DarknetController import DarknetController
+from logger import Logger
 import detectionEvaluation as detEval
 import argparse
 import time
 import pickle
 
 def main():
-    dc = DarknetController(darknetPath=args.darknetPath)
     trainTxt = args.trainTxt
     testTxt = args.testTxt
     classes = args.classes
@@ -14,6 +14,9 @@ def main():
     preWeights = args.pretrainWeights
     ogCfg = args.cfg
     outPath = os.path.join(os.getcwd(), datasetName + "_{}".format(time.strftime("%Y%m%d-%H%M%S")))
+    logger = Logger(outPath)
+    dc = DarknetController(darknetPath=args.darknetPath, logger=logger)
+
     trainInfo, testInfo = dc.verifyDataset(outPath, trainTxt=trainTxt, testTxt=testTxt, netShape=[args.trainHeight, args.trainWidth])
     namesFile = dc.createNamesFile(outPath, datasetName=datasetName, classes=classes)
     dataFile, weightsPath = dc.createDataFile(outPath, datasetName, trainTxt, testTxt, namesFile, len(classes))

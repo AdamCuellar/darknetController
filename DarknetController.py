@@ -12,12 +12,14 @@ import json
 from tqdm import tqdm
 from autoAnchors import autoAnchors_pytorch, autoAnchors_darknet
 from general import plot_labels
+from logger import Logger
 
 class DarknetController():
-    def __init__(self, darknetPath):
+    def __init__(self, darknetPath, logger=None):
         self.darknetPath = os.path.abspath(darknetPath)
         self.defaultMaxBatches = 10000
         self.anchorInfo = None
+        self.logger = logger if logger is not None else Logger("")
 
     def verifyDataset(self, outputPath, trainTxt, testTxt, netShape):
         os.makedirs(outputPath, exist_ok=True)
@@ -172,19 +174,21 @@ class DarknetController():
 
         # start training
         t1 = time.time()
-        print("#"*50)
-        print()
+        self.logger.print("#"*50)
+        self.logger.print()
         subprocess.call(trainLine, shell=True)
-        print("#"*50)
-        print()
+        self.logger.print("#"*50)
+        self.logger.print()
         t2 = time.time()
 
         totalTime = t2-t1
-        assert totalTime > 60.0, "WARNING: The training seems to be a little short, check {} for errors.".format(recordTrainTxt)
+        if totalTime < 60.0:
+            self.logger.warn("The training seems to be a little short, check {} for errors.".format(recordTrainTxt))
+            assert True, ""
 
         # go back to original directory
         os.chdir(currPath)
-        if printTime: print("Training finished in {} seconds".format(totalTime))
+        if printTime: self.logger.print("Training finished in {} seconds".format(totalTime))
         return
 
     def validate(self, outputPath, weightsPath, dataFile, cfgFile):
@@ -212,7 +216,7 @@ class DarknetController():
             t2 = time.time()
             totalTime = t2-t1
             if totalTime < 60.0:
-                print("WARNING: Validation went much faster than expected, make sure there were no errors here: {}".format(txtFile))
+                self.logger.warn("Validation went much faster than expected, make sure there were no errors here: {}".format(txtFile))
 
         # plot the pdet vs roc if it exists
         self._plotROCs(resultsPath, resultTxts)
@@ -243,11 +247,12 @@ class DarknetController():
             t2 = time.time()
             totalTime = t2-t1
             if totalTime < 60.0:
-                print("WARNING: Testing went much faster than expected, make sure there were no errors above")
+                self.logger.warn("Testing went much faster than expected, make sure there were no errors above")
 
         return predJsons
 
     def drawActivations(self):
+        # TODO: implement grad-cam
         pass
 
     def _verifyDataHelper(self, outputPath, txtFile, netShape):
@@ -318,22 +323,22 @@ class DarknetController():
         areas = (boxes[:, 2] * netShape[0]) * (boxes[:, 3] * netShape[1])
 
         if numBadImg > 0:
-            print("WARNING: Found {} bad images in {}. Recording to {}".format(len(badImages), txtFile, badImgTxt))
+            self.logger.warn("Found {} bad images in {}. Recording to {}".format(len(badImages), txtFile, badImgTxt))
             with open(badImgTxt, "w") as f:
                 f.writelines("{}\n".format(x) for x in badImages)
 
         if numBadTxt > 0:
-            print("WARNING: Found {} bad text files in {}. Recording to {}".format(len(badText), txtFile, badTextTxt))
+            self.logger.warn("WARNING: Found {} bad text files in {}. Recording to {}".format(len(badText), txtFile, badTextTxt))
             with open(badTextTxt, "w") as f:
                 f.writelines("{}\n".format(x) for x in badText)
 
-        print("Found in {}:".format(txtFile))
-        print("\tTotal Images: {}".format(len(imgPaths)))
-        print("\tTotal Classes: {}".format(len(classes)))
-        print("\tMinimum BBox Area (by Network Input): {}".format(areas.min()))
-        print("\tMaximum BBox Area (by Network Input): {}".format(areas.max()))
-        print("\tMean BBox Area (by Network Input): {}".format(areas.mean()))
-        print()
+        self.logger.info("Found in {}:".format(txtFile))
+        self.logger.print("\tTotal Images: {}".format(len(imgPaths)))
+        self.logger.print("\tTotal Classes: {}".format(len(classes)))
+        self.logger.print("\tMinimum BBox Area (by Network Input): {}".format(areas.min()))
+        self.logger.print("\tMaximum BBox Area (by Network Input): {}".format(areas.max()))
+        self.logger.print("\tMean BBox Area (by Network Input): {}".format(areas.mean()))
+        self.logger.print()
 
         infoDict = {"NumImages":len(imgPaths),
                     "NumClasses":len(classes),
@@ -416,7 +421,6 @@ class DarknetController():
         return
 
     def _modifyYoloParams(self, attrDict, numClasses, anchors=None, masks=None, numAnchors=None):
-        # TODO: add editing anchors automatically as well
         if "anchors" in attrDict and anchors is not None:
             attrDict["anchors"] = anchors
 
@@ -579,37 +583,3 @@ class DarknetController():
                 groundtruths.append([idx, line[0], 1.0, bbox])
 
         return groundtruths, imageList, imageSizes
-
-def testDcTest():
-    import detectionEvaluation as detEval
-    dc = DarknetController(darknetPath="/home/adam/Documents/darknet/darknet")
-    resultsPath = '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/resultsByWeights'
-    weightFiles = ['/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/weights/yolov4x-mish_atd_oneClass_10000.weights', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/weights/yolov4x-mish_atd_oneClass_20000.weights', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/weights/yolov4x-mish_atd_oneClass_best.weights', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/weights/yolov4x-mish_atd_oneClass_final.weights', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/weights/yolov4x-mish_atd_oneClass_last.weights']
-    dataFile = '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/atd_oneClass.data'
-    cfgFile = '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/yolov4x-mish_atd_oneClass.cfg'
-    testTxt = '/home/adam/Documents/darknet/data/atd_single/test_b_atd_single.txt'
-    predJsons = ['/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/resultsByWeights/yolov4x-mish_atd_oneClass_10000/yolov4x-mish_atd_oneClass_10000_predictions.json', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/resultsByWeights/yolov4x-mish_atd_oneClass_20000/yolov4x-mish_atd_oneClass_20000_predictions.json', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/resultsByWeights/yolov4x-mish_atd_oneClass_best/yolov4x-mish_atd_oneClass_best_predictions.json', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/resultsByWeights/yolov4x-mish_atd_oneClass_final/yolov4x-mish_atd_oneClass_final_predictions.json', '/home/adam/PycharmProjects/darknetController/atd_oneClass_20210316-200311/resultsByWeights/yolov4x-mish_atd_oneClass_last/yolov4x-mish_atd_oneClass_last_predictions.json']
-    # dc.test(resultsPath, weightFiles, dataFile, cfgFile, testTxt)
-    dc.evalDarknetJsons(predJsons, testTxt, drawDets=True)
-    return
-
-def testController():
-    dc = DarknetController(darknetPath="/home/adam/Documents/darknet/darknet")
-    trainTxt = "/home/adam/Documents/darknet/data/atd_single/train_b_atd_single.txt"
-    testTxt = "/home/adam/Documents/darknet/data/atd_single/test_b_atd_single.txt"
-    classes = ['target']
-    datasetName = "atd_oneClass"
-    preWeights = "/home/adam/Documents/darknet/yolov4x-mish.conv.166"
-    ogCfg = "/home/adam/Documents/darknet/cfg/yolov4x-mish.cfg"
-    outPath = os.path.join(os.getcwd(), datasetName + "_{}".format(time.strftime("%Y%m%d-%H%M%S")))
-    trainInfo, testInfo = dc.verifyDataset(outPath, trainTxt=trainTxt, testTxt=testTxt)
-    namesFile = dc.createNamesFile(outPath, datasetName=datasetName, classes=classes)
-    dataFile, weightsPath = dc.createDataFile(outPath, datasetName, trainTxt, testTxt, namesFile, len(classes))
-    cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=512, trainWidth=512, channels=3, subdivisions=8)
-    dc.train(outPath, dataFile, cfgFile, preWeights, gpu=None, doMap=True, dontShow=False)
-    resultsPath, weightFiles = dc.validate(outPath, weightsPath, dataFile, cfgFile)
-    dc.test(resultsPath, weightFiles, dataFile, cfgFile, testTxt)
-
-if __name__ == "__main__":
-    # testController()
-    testDcTest()
