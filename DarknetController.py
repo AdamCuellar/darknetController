@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 from PIL import Image
-import detectionEvaluation as detEval
+import eval_utils
 import json
 from tqdm import tqdm
 from autoAnchors import autoAnchors_pytorch, autoAnchors_darknet
@@ -498,13 +498,13 @@ class DarknetController():
             outPath, jsonName = os.path.split(jsonFile)
             jsonName = jsonName.replace(".json", "")
             predictions = self._parseDarknetJson(jsonFile, imageSizes)
-            resultDict, pDet, far = detEval.evalMetrics(groundtruths, predictions, numImages=len(imageSizes), noDualEval=noDualEval)
+            resultDict, pDet, far = eval_utils.evalMetrics(groundtruths, predictions, numImages=len(imageSizes), noDualEval=noDualEval)
             extractedPreds[jsonFile] = (predictions, resultDict['TPByIndex'], resultDict['FPByIndex'])
-            detEval.drawPlots(resultDict['ThreshDict'], len(groundtruths), outputPath=outPath, outputName=jsonName,
+            eval_utils.drawPlots(resultDict['ThreshDict'], len(groundtruths), outputPath=outPath, outputName=jsonName,
                       numImages=len(imageSizes))
 
             if drawDets:
-                detEval.drawDetections(outPath, imageList, groundtruths, predictions, resultDict['TPByIndex'], resultDict['FPByIndex'])
+                eval_utils.drawDetections(outPath, imageList, groundtruths, predictions, resultDict['TPByIndex'], resultDict['FPByIndex'])
 
         return imageList, groundtruths, extractedPreds
 

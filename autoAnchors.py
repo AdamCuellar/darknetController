@@ -1,6 +1,5 @@
 import sys
-sys.path.append("./PyTorch_YOLOv4/")
-from models.models import *
+from PyTorch_YOLOv4.utils.model import *
 import numpy as np
 import torch
 from tqdm import tqdm

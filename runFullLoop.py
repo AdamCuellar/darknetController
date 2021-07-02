@@ -1,7 +1,7 @@
 import os
 from DarknetController import DarknetController
 from logger import Logger
-import detectionEvaluation as detEval
+import eval_utils
 import argparse
 import time
 import pickle
