@@ -28,7 +28,7 @@ def main():
         os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
 
     dc = DarknetController(darknetPath=args.darknetPath, logger=logger)
-    trainInfo, testInfo = dc.verifyDataset(outPath, classes=classes, trainTxt=trainTxt, testTxt=testTxt, netShape=[args.trainHeight, args.trainWidth])
+    trainInfo, testInfo = dc.verifyDataset(outPath, classes=classes, trainTxt=trainTxt, testTxt=testTxt, netShape=[args.trainHeight, args.trainWidth], clearCache=args.ignoreCache)
     namesFile = dc.createNamesFile(outPath, datasetName=datasetName, classes=classes)
     dataFile, weightsPath = dc.createDataFile(outPath, datasetName, trainTxt, testTxt, namesFile, len(classes))
 
@@ -93,6 +93,7 @@ if __name__ == "__main__":
     parser.add_argument('--autoAnchors', default=0, type=int, help="Use 1 for auto anchors calculated like PyTorch Implementation,"
                                                                    " use 2 for how Alexey recommends on GitHub")
     parser.add_argument('--clear', default=False, action="store_true", help="Clear the pretrained weights to start training from iteration 0.")
+    parser.add_argument('--ignoreCache', default=False, action="store_true", help="Ignore the dataset cache and iterate through seen datasets.")
 
     args = parser.parse_args()
     for i in range(args.numInstances):
