@@ -20,13 +20,13 @@ class DarknetController():
         self.anchorInfo = None
         self.logger = logger if logger is not None else Logger("")
 
-    def verifyDataset(self, outputPath, classes, trainTxt, testTxt, netShape):
+    def verifyDataset(self, outputPath, classes, trainTxt, testTxt, netShape, clearCache=False):
         os.makedirs(outputPath, exist_ok=True)
-        trainInfo = verifyDataHelper(self.logger, outputPath, trainTxt, netShape, classes)
+        trainInfo = verifyDataHelper(self.logger, outputPath, trainTxt, netShape, classes, clearCache)
         if testTxt == trainTxt:
             testInfo = copy.deepcopy(trainInfo)
         else:
-            testInfo = verifyDataHelper(self.logger, outputPath, testTxt, netShape, classes)
+            testInfo = verifyDataHelper(self.logger, outputPath, testTxt, netShape, classes, clearCache)
         return trainInfo, testInfo
 
     def createNamesFile(self, outputPath, datasetName, classes):
