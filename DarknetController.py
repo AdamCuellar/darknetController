@@ -6,12 +6,11 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-from PIL import Image
 import eval_utils
 import json
 from tqdm import tqdm
 from autoAnchors import autoAnchors_pytorch, autoAnchors_darknet
-from general import plot_labels
+from dataset_utils import verifyDataHelper
 from logger import Logger
 
 class DarknetController():
@@ -21,13 +20,13 @@ class DarknetController():
         self.anchorInfo = None
         self.logger = logger if logger is not None else Logger("")
 
-    def verifyDataset(self, outputPath, trainTxt, testTxt, netShape):
+    def verifyDataset(self, outputPath, classes, trainTxt, testTxt, netShape):
         os.makedirs(outputPath, exist_ok=True)
-        trainInfo = self._verifyDataHelper(outputPath, trainTxt, netShape)
+        trainInfo = verifyDataHelper(self.logger, outputPath, trainTxt, netShape, classes)
         if testTxt == trainTxt:
             testInfo = copy.deepcopy(trainInfo)
         else:
-            testInfo = self._verifyDataHelper(outputPath, testTxt, netShape)
+            testInfo = verifyDataHelper(self.logger, outputPath, testTxt, netShape, classes)
         return trainInfo, testInfo
 
     def createNamesFile(self, outputPath, datasetName, classes):
@@ -66,6 +65,10 @@ class DarknetController():
                 # make sure we train for more than the amount of images we have
                 while maxBatches < trainInfo["NumImages"]:
                     maxBatches = maxBatches + self.defaultMaxBatches
+        else:
+            if maxBatches < trainInfo["NumImages"]:
+                self.logger.warn("The training will run for {} iterations."
+                                 " It's recommended you train for more than the amount of images ({})".format(maxBatches, trainInfo["NumImages"]))
 
         # create new cfg file
         ogCfgName = ogCfg.split("/")[-1]
@@ -254,100 +257,6 @@ class DarknetController():
     def drawActivations(self):
         # TODO: implement grad-cam
         pass
-
-    def _verifyDataHelper(self, outputPath, txtFile, netShape):
-
-        classes = set()
-        badImages = []
-        badText = []
-        boxes = []
-        shapes = []
-        labels = []
-
-        txtName = txtFile.split("/")[-1]
-
-        # read file
-        with open(txtFile, "r") as f:
-            imgPaths = f.readlines()
-
-        # iterate through image paths
-        for imgPath in tqdm(imgPaths, desc="Verifying Data from {}".format(txtName)):
-            imgPath = imgPath.strip()
-
-            # check if the image exists
-            if not os.path.exists(imgPath):
-                badImages.append("MISSING: {}".format(imgPath))
-                continue
-
-            img = Image.open(imgPath) # this reads the headers of the file without actually loading the image
-            imgShape = img.size
-            del img
-            shapes.append([imgShape[1], imgShape[0]])
-
-            # get text file
-            fn, ext = os.path.splitext(imgPath)
-            txtTruth = imgPath.replace(ext, ".txt")
-
-            # if the text file exists, check the truths
-            # otherwise, mark as missing
-            if os.path.exists(txtTruth):
-                with open(txtTruth, "r") as f:
-                    truthLines = f.readlines()
-
-                for truth in truthLines:
-                    line = truth.strip().split(" ")
-                    line = [float(x) for x in line]
-                    labels.append(np.asarray(line))
-                    box = line[1:]
-                    boxes.append(box.copy())
-                    classes.add(line[0])
-                    if any(x for x in box if x > 1.0 or x < 0):
-                        badText.append("BBOX ATTRIBUTE > 1 or < 0: {}".format(txtTruth))
-            else:
-                badText.append("MISSING: {}".format(txtTruth))
-
-        txtName = txtFile.split("/")[-1]
-        badImgTxt = os.path.join(outputPath, txtName.replace(".txt", ".badImg"))
-        badTextTxt = os.path.join(outputPath, txtName.replace(".txt", ".badTxt"))
-        numBadImg = len(badImages)
-        numBadTxt = len(badText)
-
-        # plot label information
-        labels = np.stack(labels)
-        saveName = txtName.replace(".txt", "") + "_labels_{}.png"
-        plot_labels(labels, names=classes, save_dir=os.path.join(outputPath, saveName))
-
-        # check truth sizes
-        # check truth sizes
-        boxes = np.asarray(boxes)
-        areas = (boxes[:, 2] * netShape[0]) * (boxes[:, 3] * netShape[1])
-
-        if numBadImg > 0:
-            self.logger.warn("Found {} bad images in {}. Recording to {}".format(len(badImages), txtFile, badImgTxt))
-            with open(badImgTxt, "w") as f:
-                f.writelines("{}\n".format(x) for x in badImages)
-
-        if numBadTxt > 0:
-            self.logger.warn("WARNING: Found {} bad text files in {}. Recording to {}".format(len(badText), txtFile, badTextTxt))
-            with open(badTextTxt, "w") as f:
-                f.writelines("{}\n".format(x) for x in badText)
-
-        self.logger.info("Found in {}:".format(txtFile))
-        self.logger.print("\tTotal Images: {}".format(len(imgPaths)))
-        self.logger.print("\tTotal Classes: {}".format(len(classes)))
-        self.logger.print("\tMinimum BBox Area (by Network Input): {}".format(areas.min()))
-        self.logger.print("\tMaximum BBox Area (by Network Input): {}".format(areas.max()))
-        self.logger.print("\tMean BBox Area (by Network Input): {}".format(areas.mean()))
-        self.logger.print()
-
-        infoDict = {"NumImages":len(imgPaths),
-                    "NumClasses":len(classes),
-                    "MinArea":areas.min(),
-                    "MaxArea":areas.max(),
-                    "Boxes":boxes,
-                    "Shapes":np.asarray(shapes)}
-
-        return infoDict
 
     def _isHeader(self, line):
         return line.startswith("[") and line.endswith("]")

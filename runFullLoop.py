@@ -14,19 +14,28 @@ def main():
     preWeights = args.pretrainWeights
     ogCfg = args.cfg
     outPath = os.path.join(os.getcwd(), datasetName + "_{}".format(time.strftime("%Y%m%d-%H%M%S")))
+    os.makedirs(outPath, exist_ok=True)
     logger = Logger(outPath)
-    dc = DarknetController(darknetPath=args.darknetPath, logger=logger)
 
-    trainInfo, testInfo = dc.verifyDataset(outPath, trainTxt=trainTxt, testTxt=testTxt, netShape=[args.trainHeight, args.trainWidth])
+    # make the selected gpu(s) the only one we can see, that way we can use it for all steps
+    multiGPU = False
+    if len(args.gpus) > 1:
+        multiGPU = True
+        args.gpus = [str(x) for x in args.gpus]
+        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(args.gpus)
+    else:
+        gpu = args.gpus[0]
+        os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
+
+    dc = DarknetController(darknetPath=args.darknetPath, logger=logger)
+    trainInfo, testInfo = dc.verifyDataset(outPath, classes=classes, trainTxt=trainTxt, testTxt=testTxt, netShape=[args.trainHeight, args.trainWidth])
     namesFile = dc.createNamesFile(outPath, datasetName=datasetName, classes=classes)
     dataFile, weightsPath = dc.createDataFile(outPath, datasetName, trainTxt, testTxt, namesFile, len(classes))
 
     cfgFile = None
-    if len(args.gpus) > 1:
+    if multiGPU:
         tempMaxBatches = len(args.gpus) * 1000
-        args.gpus = [str(x) for x in args.gpus]
-        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(args.gpus)
-        gpus = [str(i) for i in range(len(args.gpus))]
+        gpus = [str(i) for i in range(len(args.gpus))] # need to start from zero since we set the CUDA_VISIBLE_DEVICES flag
         cfgFile1 = dc.createCfgFile(outPath, datasetName + "_burn_in", ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=tempMaxBatches, burn_in=True, auto_anchors=args.autoAnchors)
         cfgFile2 = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
@@ -34,10 +43,7 @@ def main():
         dc.train_multiGPU(outPath, dataFile, cfgFile1, cfgFile2, preWeights, gpus=gpus, burnAmount=tempMaxBatches, doMap=True, dontShow=args.dont_show, clear=args.clear)
         cfgFile = cfgFile2
     else:
-        # make the selected gpu the only one darknet can see, that way we can use it for all steps train/test/validate
-        gpu = args.gpus[0]
-        os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
-        gpu = 0
+        gpu = 0 # since we set the CUDA_VISIBLE_DEVICES variable above, we can call any gpu 0
         cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo, trainHeight=args.trainHeight,
                                    trainWidth=args.trainWidth, channels=args.channels, subdivisions=args.subdivisions, maxBatches=args.maxBatches, auto_anchors=args.autoAnchors)
         dc.train(outPath, dataFile, cfgFile, preWeights, gpu=gpu, doMap=True, dontShow=args.dont_show, clear=args.clear)

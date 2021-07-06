@@ -70,7 +70,7 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
         # TODO: process detections (might need to do nms first, which means need to implement darknet nms methods)
         for headNum in range(len(infOut)):
             # get predictions for this head
-            yoloHead = model.yolo_layers[headNum]
+            yoloHead = model.module_list[model.yolo_layers[headNum]]
             headPred = infOut[headNum].squeeze(0)
             headRaw = rawPred[headNum].squeeze(0)
 
@@ -80,10 +80,7 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
                 currAnch = yoloHead.anchors[anchNum]
                 anchPred = headPred[anchNum]
                 anchRaw = headRaw[anchNum]
-
                 clsConfs = anchPred[:,:,]
-
-
 
             pass
 

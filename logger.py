@@ -14,7 +14,11 @@ class Logger():
             os.remove(self.txtFile)
 
     def write(self, txt):
-        with open(self.txtFile, "a") as f:
+        if os.path.exists(self.txtFile):
+            append_write = 'a'  # append if already exists
+        else:
+            append_write = 'w'  # make a new file if not
+        with open(self.txtFile, append_write) as f:
             f.write(txt + "\n")
         return
 
@@ -24,13 +28,13 @@ class Logger():
         return
 
     def info(self, txt):
-        print(Style.BRIGHT + Fore.WHITE + Back.BLUE + "INFO:", end="\r")
-        print(Style.RESET_ALL + "\t" + txt)
+        print(Style.BRIGHT + Fore.BLACK + Back.CYAN + "INFO:" + Style.RESET_ALL)
+        print("\t" + txt)
         self.write("INFO:\n\t{}".format(txt))
         return
 
     def warn(self, txt):
-        print(Style.BRIGHT + Back.RED + "WARNING:", end="\r")
-        print(Style.RESET_ALL + "\t" + txt)
+        print(Style.BRIGHT + Back.RED + "WARNING:" + Style.RESET_ALL)
+        print("\t" + txt)
         self.write("WARNING:\n\t{}".format(txt))
         return

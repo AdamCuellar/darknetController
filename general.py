@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -62,7 +63,7 @@ def hist2d(x, y, n=100):
 
 def plot_labels(labels, names=(), save_dir=''):
     # plot dataset labels
-    print('Plotting labels... ')
+    print('Plotting labels... ', end="\r")
     c, b = labels[:, 0], labels[:, 1:].transpose()  # classes, boxes
     nc = int(c.max() + 1)  # number of classes
     x = pd.DataFrame(b.transpose(), columns=['x', 'y', 'width', 'height'])
@@ -100,6 +101,34 @@ def plot_labels(labels, names=(), save_dir=''):
             ax[a].spines[s].set_visible(False)
 
     plt.savefig(save_dir.format("info"), dpi=200)
+    matplotlib.use('Agg')
+    plt.close()
+    print('Plotting labels - Done.')
+    return
+
+def plot_nms_limits(outPath, nmsDict, totalNumDets):
+    # split dictionary into keys and values
+    iou_thresh, numCombined = zip(*nmsDict.items())
+    numCombined = np.asarray(numCombined)
+
+    matplotlib.use('svg')
+    ax = plt.subplots(2, 1, figsize=(8, 8), tight_layout=True)[1].ravel()
+    ax[0].bar(iou_thresh, numCombined, width=1/(len(numCombined)+1), edgecolor='black', linewidth=1)
+    ax[0].set_xlabel("NMS IoU Threshold")
+    ax[0].set_ylabel("Number of Combined Detections")
+    ax[0].set_xticks(iou_thresh)
+    ax[0].set_xticklabels(labels=iou_thresh, rotation=(45), fontsize=10, ha='right')
+
+    # check highest possible recall
+    hpr = (totalNumDets - numCombined)/totalNumDets
+    ax[1].plot(iou_thresh, hpr, 'b-o')
+    ax[1].set_xlabel("NMS IoU Threshold")
+    ax[1].set_ylabel("Highest Possible Recall")
+    ax[1].set_xticks(iou_thresh)
+    ax[1].set_xticklabels(labels=iou_thresh, rotation=(45), fontsize=10, ha='right')
+    ax[1].grid()
+
+    plt.savefig(os.path.join(outPath, "nms_info.png"), dpi=200)
     matplotlib.use('Agg')
     plt.close()
     return
