@@ -106,7 +106,7 @@ def plot_labels(labels, names=(), save_dir=''):
     print('Plotting labels - Done.')
     return
 
-def plot_nms_limits(outPath, nmsDict, totalNumDets):
+def plot_nms_limits(save_dir, nmsDict, totalNumDets):
     # split dictionary into keys and values
     iou_thresh, numCombined = zip(*nmsDict.items())
     numCombined = np.asarray(numCombined)
@@ -128,7 +128,7 @@ def plot_nms_limits(outPath, nmsDict, totalNumDets):
     ax[1].set_xticklabels(labels=iou_thresh, rotation=(45), fontsize=10, ha='right')
     ax[1].grid()
 
-    plt.savefig(os.path.join(outPath, "nms_info.png"), dpi=200)
+    plt.savefig(save_dir.format("nms_info"), dpi=200)
     matplotlib.use('Agg')
     plt.close()
     return

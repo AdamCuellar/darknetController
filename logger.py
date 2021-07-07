@@ -6,6 +6,7 @@ BACKS = [ Back.BLACK, Back.RED, Back.GREEN, Back.YELLOW, Back.BLUE, Back.MAGENTA
 STYLES = [ Style.DIM, Style.NORMAL, Style.BRIGHT ]
 
 class Logger():
+    """ Simple, cool logger that adds color to info and warnings"""
     def __init__(self, outputPath):
         init()
         self.txtFile = os.path.join(outputPath, "dc_log.txt")
