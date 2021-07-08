@@ -9,12 +9,54 @@ import torch
 import sys
 sys.path.append("PyTorch_YOLOv4")
 from utils.model import Darknet
-from utils.general import parse_cfg, parse_names, clip_coords, build_targets
+from utils.general import parse_cfg, parse_names, clip_coords, build_targets, non_max_suppression, xyxy2xywh
 from utils.torch_utils import select_device
 from utils.datasets import LoadData
 
 from general import plot_labels
 from tqdm import tqdm
+
+def get_grid_edges(strides, scope):
+    edges = []
+    for st in strides:
+        tmp = np.arange(0, int(scope/st) + 1) * st
+        edges.append(tmp)
+
+    return np.concatenate(edges)
+
+def plot_objectness_xy(data, outPath, name, width, height, strides):
+    # threshs = [round(x, 2) for x in np.linspace(0.05, 1.0, num=19, endpoint=False)] + [1.0]
+
+    ax = plt.subplots(2, 1, figsize=(32, 16), tight_layout=True)[1].ravel()
+    # for idx, th in enumerate(threshs):
+    #     rgb = np.random.rand(3,)
+    #     lastTh = threshs[idx-1] if idx > 0 else 0
+    #     lbl = "{} <= x < {}".format(lastTh, th)
+    #     currData = data[data[:, 4] < th]
+    #     currData = currData[currData[:, 4] >= lastTh]
+    #     ax[0].plot(currData[:, 0], currData[:, 1], 'o', color=rgb, label=lbl)
+
+    xticks = get_grid_edges(strides, width)
+    yticks = [0] + [round(x, 2) for x in np.linspace(0.05, 1.0, num=19, endpoint=False)] + [1.0]
+    ax[0].plot(data[:, 0], data[:, 4], 'bo', markersize=1)
+    ax[0].set_xlabel("X Center")
+    ax[0].set_ylabel("Objectness")
+    ax[0].set_xticks(xticks)
+    ax[0].set_yticks(yticks)
+    ax[0].set_xticklabels(labels=xticks, rotation=(45), fontsize=10, ha='right')
+
+    xticks = get_grid_edges(strides, height)
+    ax[1].plot(data[:, 1], data[:, 4], 'bo', markersize=1)
+    ax[1].set_ylabel("Y Center")
+    ax[1].set_ylabel("Objectness")
+    ax[1].set_xticks(xticks)
+    ax[1].set_yticks(yticks)
+    ax[1].set_xticklabels(labels=xticks, rotation=(45), fontsize=10, ha='right')
+    # ax.legend()
+    file = os.path.join(outPath, "{}_xyCen_objectness.png".format(name))
+    plt.savefig(file, dpi=200)
+    plt.close()
+    return
 
 def plot_histograms(data, height, width, outPath, name):
     x,y = data.T
@@ -71,18 +113,24 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
     # Eval mode
     model.to(device).eval()
 
+    # get nms options from last yolo layer
+    last_yolo_idx = model.yolo_layers[-1]
+    nmsType = model.module_defs[last_yolo_idx].get('nms_kind', "normal")
+    beta1 = model.module_defs[last_yolo_idx].get('beta_nms', 0.6)
+
     # instantiate dataloader
     dataloader = LoadData(dataFile, netParams, imgShape, valid=True)
 
-    allPredictions = []
-    truthXY, predXY = dict((i, []) for i in range(len(model.yolo_layers))), dict((i, []) for i in range(len(model.yolo_layers)))
-    truthXY2 = []
+    truthXY, filteredPredXY = [], []
     for img, truth, pth, shape in tqdm(dataloader, desc="Studying predictions"):
         img = img.to(device)
+
+        # record truth
         tmpTruth = truth.clone()
         tmpTruth[:, [2, 4]] *= img.shape[2]
         tmpTruth[:, [3, 5]] *= img.shape[1]
-        truthXY2.append(tmpTruth[:, 2:4])
+        truthXY.append(tmpTruth[:, 2:4])
+
         truth = truth.to(device)
         img = img.float()
         img /= np.iinfo(imgType).max # 0- 1.0
@@ -91,51 +139,34 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
 
         with torch.no_grad():
             infOut, rawPred = model(img, study_preds=True)
-            tcls, tbox, tIdxs, anchs = build_targets(rawPred, truth, model)
 
-        # TODO: process detections (might need to do nms first, which means need to implement darknet nms methods)
-        for headNum in range(len(infOut)):
-            # get predictions for this head
-            yoloHead = model.module_list[model.yolo_layers[headNum]]
-            headPred = infOut[headNum].squeeze(0)
-            headRaw = rawPred[headNum].squeeze(0)
+        # flatten for plotting and nms
+        flatPreds = torch.cat([x.view(1, -1, x.shape[-1]) for x in infOut], 1)
 
-            # get truths for this head and scale to prediction height/width
-            headTruthBox = tbox[headNum].clone()
-            headTruthBox[:, [0, 2]] *= img.shape[3]
-            headTruthBox[:, [1, 3]] *= img.shape[2]
+        # filter preds via nms
+        filteredPreds = non_max_suppression(flatPreds, conf_thres=0.0001, iou_thres=0.45, nmsType=nmsType, beta1=beta1, max_det=1000)[0]
+        if filteredPreds is None: continue
 
-            # add xcens and ycens to dictionary
-            truthXY[headNum].append(headTruthBox[:, :2].cpu())
-            currPredXY = headPred.clone().reshape(-1, headPred.shape[-1])[:, :2]
-            predXY[headNum].append(currPredXY.cpu())
+        # convert to xywh and record
+        filteredPreds[:, :4] = xyxy2xywh(filteredPreds[:, :4])
+        filteredPredXY.append(filteredPreds.clone().cpu())
+
+        # TODO: add mAP, check how many small, medium, large objects we missed
+
 
     # plot histograms of xy cens
-    truth = torch.cat(truthXY2, 0).numpy()
-    plot_histograms(truth, width=netParams["width"], height=netParams["height"],
-                        outPath=outPath, name="train_all_raw")
+    truthXY = torch.cat(truthXY, 0).numpy()
+    plot_histograms(truthXY, width=netParams["width"], height=netParams["height"],
+                        outPath=outPath, name="truths")
 
-    for i in truthXY.keys():
-        # plot truths
-        truth = torch.cat(truthXY[i], 0).numpy()
-        plot_histograms(truth, width=netParams["width"], height=netParams["height"],
-                        outPath=outPath, name="train_head_{}".format(i))
+    filteredPredXY = torch.cat(filteredPredXY, 0).numpy()
+    strides = [model.module_list[idx].stride for idx in model.yolo_layers]
+    plot_objectness_xy(filteredPredXY, outPath, name="preds_afterNMS", width=netParams["width"],
+                       height=netParams["height"], strides=strides)
 
-        # plot preds
-        pred = torch.cat(predXY[i], 0).numpy()
-        plot_histograms(pred, width=netParams["width"], height=netParams["height"],
-                        outPath=outPath, name="preds_head_{}".format(i))
+    plot_histograms(filteredPredXY[:, :2], width=netParams["width"], height=netParams["height"],
+                    outPath=outPath, name="preds_afterNMS")
 
-    # plot all
-    truth = [y for x in truthXY.values() for y in x]
-    truth = torch.cat(truth, 0).numpy()
-    plot_histograms(truth, width=netParams["width"], height=netParams["height"],
-                    outPath=outPath, name="train_all")
-
-    pred = [y for x in predXY.values() for y in x]
-    pred = torch.cat(pred, 0).numpy()
-    plot_histograms(pred, width=netParams["width"], height=netParams["height"],
-                    outPath=outPath, name="pred_all")
 
     # TODO: plot statistics of all predictions
     # allPredictions = np.stack(allPredictions)
@@ -146,7 +177,6 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
 
 
 def test_script():
-    cocoFile = "/home/adam/PycharmProjects/darknetController/PyTorch_YOLOv4/data/testdev2017.txt"
     cocoNames = parse_names("/home/adam/PycharmProjects/darknetController/PyTorch_YOLOv4/data/coco.names")
 
     study_predictions(outPath="testingStudy",
