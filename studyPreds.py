@@ -18,6 +18,9 @@ from tqdm import tqdm
 
 def get_grid_edges(strides, scope):
     edges = []
+    if not isinstance(strides, list):
+        strides = [strides]
+
     for st in strides:
         tmp = np.arange(0, int(scope/st) + 1) * st
         edges.append(tmp)
@@ -25,33 +28,29 @@ def get_grid_edges(strides, scope):
     return np.concatenate(edges)
 
 def plot_objectness_xy(data, outPath, name, width, height, strides):
-    # threshs = [round(x, 2) for x in np.linspace(0.05, 1.0, num=19, endpoint=False)] + [1.0]
-
-    ax = plt.subplots(2, 1, figsize=(32, 16), tight_layout=True)[1].ravel()
-    # for idx, th in enumerate(threshs):
-    #     rgb = np.random.rand(3,)
-    #     lastTh = threshs[idx-1] if idx > 0 else 0
-    #     lbl = "{} <= x < {}".format(lastTh, th)
-    #     currData = data[data[:, 4] < th]
-    #     currData = currData[currData[:, 4] >= lastTh]
-    #     ax[0].plot(currData[:, 0], currData[:, 1], 'o', color=rgb, label=lbl)
-
-    xticks = get_grid_edges(strides, width)
     yticks = [0] + [round(x, 2) for x in np.linspace(0.05, 1.0, num=19, endpoint=False)] + [1.0]
-    ax[0].plot(data[:, 0], data[:, 4], 'bo', markersize=1)
-    ax[0].set_xlabel("X Center")
-    ax[0].set_ylabel("Objectness")
-    ax[0].set_xticks(xticks)
-    ax[0].set_yticks(yticks)
-    ax[0].set_xticklabels(labels=xticks, rotation=(45), fontsize=10, ha='right')
 
-    xticks = get_grid_edges(strides, height)
-    ax[1].plot(data[:, 1], data[:, 4], 'bo', markersize=1)
-    ax[1].set_ylabel("Y Center")
-    ax[1].set_ylabel("Objectness")
-    ax[1].set_xticks(xticks)
-    ax[1].set_yticks(yticks)
-    ax[1].set_xticklabels(labels=xticks, rotation=(45), fontsize=10, ha='right')
+    ax = plt.subplots(len(strides), 2, figsize=(40, 16), tight_layout=True)[1].ravel()
+    for idx in range(len(strides)):
+        xticks = get_grid_edges(strides[idx], width)
+        plotIdx = idx+1*idx
+        ax[plotIdx].plot(data[idx][:, 0], data[idx][:, 4], 'bo', markersize=1)
+        ax[plotIdx].set_xlabel("X Center")
+        ax[plotIdx].set_ylabel("Objectness")
+        ax[plotIdx].set_xticks(xticks)
+        ax[plotIdx].set_yticks(yticks)
+        ax[plotIdx].set_xticklabels(labels=xticks, rotation=(45), fontsize=10, ha='right')
+        ax[plotIdx].set_title("Head {} w/ Stride {}".format(idx, strides[idx]))
+
+        xticks = get_grid_edges(strides[idx], height)
+        ax[plotIdx+1].plot(data[idx][:, 1], data[idx][:, 4], 'bo', markersize=1)
+        ax[plotIdx+1].set_ylabel("Y Center")
+        ax[plotIdx+1].set_ylabel("Objectness")
+        ax[plotIdx+1].set_xticks(xticks)
+        ax[plotIdx+1].set_yticks(yticks)
+        ax[plotIdx+1].set_xticklabels(labels=xticks, rotation=(45), fontsize=10, ha='right')
+        ax[plotIdx+1].set_title("Head {} w/ Stride {}".format(idx, strides[idx]))
+
     # ax.legend()
     file = os.path.join(outPath, "{}_xyCen_objectness.png".format(name))
     plt.savefig(file, dpi=200)
@@ -119,9 +118,9 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
     beta1 = model.module_defs[last_yolo_idx].get('beta_nms', 0.6)
 
     # instantiate dataloader
-    dataloader = LoadData(dataFile, netParams, imgShape, valid=True)
+    dataloader = LoadData(dataFile, netParams, imgShape, valid=True, imgType=imgType)
 
-    truthXY, filteredPredXY = [], []
+    truthXY, filteredPredXY = [], dict((i, []) for i in range(len(model.yolo_layers)))
     for img, truth, pth, shape in tqdm(dataloader, desc="Studying predictions"):
         img = img.to(device)
 
@@ -140,16 +139,17 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
         with torch.no_grad():
             infOut, rawPred = model(img, study_preds=True)
 
-        # flatten for plotting and nms
-        flatPreds = torch.cat([x.view(1, -1, x.shape[-1]) for x in infOut], 1)
+        # go through the predicitions from each head, flatten them, and run NMS (this might show duplicates that would normally be reduced via nms on ALL heads)
+        for idx, x in enumerate(infOut):
+            flatPreds = x.view(1, -1, x.shape[-1])
 
-        # filter preds via nms
-        filteredPreds = non_max_suppression(flatPreds, conf_thres=0.0001, iou_thres=0.45, nmsType=nmsType, beta1=beta1, max_det=1000)[0]
-        if filteredPreds is None: continue
+            # filter preds via nms
+            filteredPreds = non_max_suppression(flatPreds, conf_thres=0.0001, iou_thres=0.45, nmsType=nmsType, beta1=beta1, max_det=1000)[0]
+            if filteredPreds is None: continue
 
-        # convert to xywh and record
-        filteredPreds[:, :4] = xyxy2xywh(filteredPreds[:, :4])
-        filteredPredXY.append(filteredPreds.clone().cpu())
+            # convert to xywh and record
+            filteredPreds[:, :4] = xyxy2xywh(filteredPreds[:, :4])
+            filteredPredXY[idx].append(filteredPreds.clone().cpu())
 
         # TODO: add mAP, check how many small, medium, large objects we missed
 
@@ -159,11 +159,16 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
     plot_histograms(truthXY, width=netParams["width"], height=netParams["height"],
                         outPath=outPath, name="truths")
 
-    filteredPredXY = torch.cat(filteredPredXY, 0).numpy()
+    # create tensors of each head
+    for idx, vals in filteredPredXY.items():
+        filteredPredXY[idx] = torch.cat(vals, 0).numpy()
+
     strides = [model.module_list[idx].stride for idx in model.yolo_layers]
     plot_objectness_xy(filteredPredXY, outPath, name="preds_afterNMS", width=netParams["width"],
                        height=netParams["height"], strides=strides)
 
+    # flatten dictionary for histogram plots
+    filteredPredXY = np.concatenate(list(filteredPredXY.values()), 0)
     plot_histograms(filteredPredXY[:, :2], width=netParams["width"], height=netParams["height"],
                     outPath=outPath, name="preds_afterNMS")
 
@@ -193,4 +198,28 @@ def test_script():
 
 # TODO: make this individual script with args
 if __name__ == "__main__":
-    test_script()
+    # test_script()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cfg", type=str, help="Path to model cfg file", required=True)
+    parser.add_argument("--weights", type=str, help="Path to model weights", required=True)
+    parser.add_argument("--data", type=str, help="Path to *.data file", required=True)
+    parser.add_argument("--names", type=str, help="Path to *.names file", required=True)
+    parser.add_argument("--width", type=int, default=None, help="Width of network for inference. Defaults to width in cfg if not given")
+    parser.add_argument("--height", type=int, default=None, help="Height of network for inference. Defaults to height in cfg if not given")
+    parser.add_argument("--device", type=str, default=0, help="Device to use for inference, 'cpu' or gpu number (0,1,...)")
+    parser.add_argument("--use16bit", action="store_true", help="Load the images as 16 bit images")
+    parser.add_argument("--output", type=str, help="Path to save output")
+    args = parser.parse_args()
+
+    imgShape = None if None in [args.width, args.height] else [args.height, args.width]
+    imgType = np.uint16 if args.use16bit else np.uint8
+    names = parse_names(args.names)
+    study_predictions(outPath=args.output,
+                      outName="", # TODO: change this to be the name of the data file
+                      modelCfg=args.cfg,
+                      modelWeights=args.weights,
+                      dataFile=args.data,
+                      names=names,
+                      imgShape=imgShape,
+                      device=args.device,
+                      imgType=imgType)
