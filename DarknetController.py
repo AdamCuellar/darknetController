@@ -344,7 +344,7 @@ class DarknetController():
         return
 
     def _plotROCs(self, resultsPath, txtFiles, infoFrom="darknet"):
-        allRoc = os.path.join(resultsPath, "allRocs_{}.png".format(infoFrom))
+        allRoc = os.path.join(resultsPath, "all_darknet_rocs_{}.png".format(infoFrom))
         resultsByWeights = dict()
         for txtFile in txtFiles:
             currWeightName = txtFile.split("/")[-1].replace(".weights", "")
@@ -356,13 +356,14 @@ class DarknetController():
             labels.append(label)
             currColor = np.random.rand(3,)
             score, pDets, fars = results
-            plt.plot(fars, pDets, c=currColor, marker='o', markersize=2.0)
+            plt.plot(fars, pDets, c=currColor, marker='o', markersize=2.0, label=label)
 
         plt.grid()
         plt.title("Comparing ROCs")
         plt.xlabel("False Alarm (per Frame)")
         plt.ylabel("Probability of Detection")
-        plt.legend(labels)
+        # place legend outside of figure to make sure it doesn't cover the graph(s)
+        plt.legend(labels, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='xx-small')
         plt.savefig(allRoc, bbox_inches='tight', dpi=300)
         plt.clf()
         return

@@ -16,6 +16,22 @@ from utils.datasets import LoadData
 from general import plot_labels
 from tqdm import tqdm
 
+def check_lands_on_grid_edge(gridEdges, xy, name):
+    xEdges, yEdges = [], []
+    for idx, edges in gridEdges.items():
+        xEdges.extend(edges[1].tolist())
+        yEdges.extend(edges[0].tolist())
+
+    xEdges, yEdges = set(xEdges), set(yEdges)
+    numX = [np.where(xy[:, 0] == x, 1, 0).sum() for x in xEdges]
+    numY = [np.where(xy[:, 1] == x, 1, 0).sum() for x in yEdges]
+    numBoth = [np.where(np.logical_and(xy[:, 0] == x, xy[:, 1] == y), 1, 0).sum() for x in xEdges
+               for y in yEdges]
+    print("{} {} land on X edges".format(sum(numX), name))
+    print("{} {} land on Y edges".format(sum(numY), name))
+    print("{} {} land on both X&Y edges".format(sum(numBoth), name))
+    return
+
 def get_grid_edges(strides, scope):
     edges = []
     if not isinstance(strides, list):
@@ -44,7 +60,7 @@ def plot_objectness_xy(data, outPath, name, width, height, strides):
 
         xticks = get_grid_edges(strides[idx], height)
         ax[plotIdx+1].plot(data[idx][:, 1], data[idx][:, 4], 'bo', markersize=1)
-        ax[plotIdx+1].set_ylabel("Y Center")
+        ax[plotIdx+1].set_xlabel("Y Center")
         ax[plotIdx+1].set_ylabel("Objectness")
         ax[plotIdx+1].set_xticks(xticks)
         ax[plotIdx+1].set_yticks(yticks)
@@ -112,10 +128,18 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
     # Eval mode
     model.to(device).eval()
 
+    # fake pass to initialize model variables
+    _ = model(torch.randn(1,3,netParams["height"], netParams["width"]).to(device))
+
     # get nms options from last yolo layer
     last_yolo_idx = model.yolo_layers[-1]
     nmsType = model.module_defs[last_yolo_idx].get('nms_kind', "normal")
     beta1 = model.module_defs[last_yolo_idx].get('beta_nms', 0.6)
+
+    # get model strides and edges
+    strides = [model.module_list[idx].stride for idx in model.yolo_layers]
+    gridEdges = dict((idx, [get_grid_edges(s, netParams["height"]), get_grid_edges(s, netParams["width"])])
+                     for idx, s in enumerate(strides))
 
     # instantiate dataloader
     dataloader = LoadData(dataFile, netParams, imgShape, valid=True, imgType=imgType)
@@ -144,7 +168,7 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
             flatPreds = x.view(1, -1, x.shape[-1])
 
             # filter preds via nms
-            filteredPreds = non_max_suppression(flatPreds, conf_thres=0.0001, iou_thres=0.45, nmsType=nmsType, beta1=beta1, max_det=1000)[0]
+            filteredPreds = non_max_suppression(flatPreds.cpu(), conf_thres=0.0001, iou_thres=0.45, nmsType=nmsType, beta1=beta1, max_det=300)[0]
             if filteredPreds is None: continue
 
             # convert to xywh and record
@@ -153,9 +177,12 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
 
         # TODO: add mAP, check how many small, medium, large objects we missed
 
+    truthXY = torch.cat(truthXY, 0).numpy()
+
+    # check how many times we have a truth on a grid edge
+    check_lands_on_grid_edge(gridEdges, truthXY, "truths")
 
     # plot histograms of xy cens
-    truthXY = torch.cat(truthXY, 0).numpy()
     plot_histograms(truthXY, width=netParams["width"], height=netParams["height"],
                         outPath=outPath, name="truths")
 
@@ -163,7 +190,6 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
     for idx, vals in filteredPredXY.items():
         filteredPredXY[idx] = torch.cat(vals, 0).numpy()
 
-    strides = [model.module_list[idx].stride for idx in model.yolo_layers]
     plot_objectness_xy(filteredPredXY, outPath, name="preds_afterNMS", width=netParams["width"],
                        height=netParams["height"], strides=strides)
 
@@ -171,6 +197,9 @@ def study_predictions(outPath, outName, modelCfg, modelWeights, dataFile, names,
     filteredPredXY = np.concatenate(list(filteredPredXY.values()), 0)
     plot_histograms(filteredPredXY[:, :2], width=netParams["width"], height=netParams["height"],
                     outPath=outPath, name="preds_afterNMS")
+
+    # check how many predictions land on a grid edge
+    check_lands_on_grid_edge(gridEdges, filteredPredXY, "predictions")
 
 
     # TODO: plot statistics of all predictions
@@ -198,28 +227,28 @@ def test_script():
 
 # TODO: make this individual script with args
 if __name__ == "__main__":
-    # test_script()
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg", type=str, help="Path to model cfg file", required=True)
-    parser.add_argument("--weights", type=str, help="Path to model weights", required=True)
-    parser.add_argument("--data", type=str, help="Path to *.data file", required=True)
-    parser.add_argument("--names", type=str, help="Path to *.names file", required=True)
-    parser.add_argument("--width", type=int, default=None, help="Width of network for inference. Defaults to width in cfg if not given")
-    parser.add_argument("--height", type=int, default=None, help="Height of network for inference. Defaults to height in cfg if not given")
-    parser.add_argument("--device", type=str, default=0, help="Device to use for inference, 'cpu' or gpu number (0,1,...)")
-    parser.add_argument("--use16bit", action="store_true", help="Load the images as 16 bit images")
-    parser.add_argument("--output", type=str, help="Path to save output")
-    args = parser.parse_args()
-
-    imgShape = None if None in [args.width, args.height] else [args.height, args.width]
-    imgType = np.uint16 if args.use16bit else np.uint8
-    names = parse_names(args.names)
-    study_predictions(outPath=args.output,
-                      outName="", # TODO: change this to be the name of the data file
-                      modelCfg=args.cfg,
-                      modelWeights=args.weights,
-                      dataFile=args.data,
-                      names=names,
-                      imgShape=imgShape,
-                      device=args.device,
-                      imgType=imgType)
+    test_script()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--cfg", type=str, help="Path to model cfg file", required=True)
+    # parser.add_argument("--weights", type=str, help="Path to model weights", required=True)
+    # parser.add_argument("--data", type=str, help="Path to *.data file", required=True)
+    # parser.add_argument("--names", type=str, help="Path to *.names file", required=True)
+    # parser.add_argument("--width", type=int, default=None, help="Width of network for inference. Defaults to width in cfg if not given")
+    # parser.add_argument("--height", type=int, default=None, help="Height of network for inference. Defaults to height in cfg if not given")
+    # parser.add_argument("--device", type=str, default=0, help="Device to use for inference, 'cpu' or gpu number (0,1,...)")
+    # parser.add_argument("--use16bit", action="store_true", help="Load the images as 16 bit images")
+    # parser.add_argument("--output", type=str, help="Path to save output")
+    # args = parser.parse_args()
+    #
+    # imgShape = None if None in [args.width, args.height] else [args.height, args.width]
+    # imgType = np.uint16 if args.use16bit else np.uint8
+    # names = parse_names(args.names)
+    # study_predictions(outPath=args.output,
+    #                   outName="", # TODO: change this to be the name of the data file
+    #                   modelCfg=args.cfg,
+    #                   modelWeights=args.weights,
+    #                   dataFile=args.data,
+    #                   names=names,
+    #                   imgShape=imgShape,
+    #                   device=args.device,
+    #                   imgType=imgType)
