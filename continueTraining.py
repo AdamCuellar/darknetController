@@ -40,6 +40,7 @@ def continue_training():
     testTxt = dataInfo["valid"]
 
     # adjust lr unless directed otherwise
+    lr = None
     if args.adjustLR:
         lr = modelParams["learning_rate"]
         currIterations = int(args.weights) if args.weights.isnumeric() else modelParams["max_batches"]
