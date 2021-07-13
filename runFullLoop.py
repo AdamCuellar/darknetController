@@ -1,6 +1,7 @@
 import os
 from DarknetController import DarknetController
 from logger import Logger
+from general import setupGPU
 import eval_utils
 import argparse
 import time
@@ -18,14 +19,7 @@ def main():
     logger = Logger(outPath)
 
     # make the selected gpu(s) the only one we can see, that way we can use it for all steps
-    multiGPU = False
-    if len(args.gpus) > 1:
-        multiGPU = True
-        args.gpus = [str(x) for x in args.gpus]
-        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(args.gpus)
-    else:
-        gpu = args.gpus[0]
-        os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
+    multiGPU = setupGPU(args.gpus)
 
     dc = DarknetController(darknetPath=args.darknetPath, logger=logger)
     trainInfo, testInfo = dc.verifyDataset(outPath, classes=classes, trainTxt=trainTxt, testTxt=testTxt, netShape=[args.trainHeight, args.trainWidth], clearCache=args.ignoreCache)

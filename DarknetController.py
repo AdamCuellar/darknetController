@@ -194,7 +194,7 @@ class DarknetController():
         if printTime: self.logger.print("Training finished in {} seconds".format(totalTime))
         return
 
-    def validate(self, outputPath, weightsPath, dataFile, cfgFile):
+    def validate(self, outputPath, weightsPath, dataFile, cfgFile, skipExisting=False):
 
         # get all the weights
         weightFiles = sorted([os.path.join(weightsPath, x) for x in os.listdir(weightsPath) if ".weights" in x])
@@ -208,6 +208,10 @@ class DarknetController():
             weightsName =  weights.split("/")[-1].replace(".weights", "")
             txtName = weightsName + "_results.txt"
             currPath = os.path.join(resultsPath, weightsName)
+
+            # skip weights we already processed, if requested
+            if skipExisting and os.path.exists(currPath): continue
+
             os.makedirs(currPath, exist_ok=True)
             txtFile = os.path.join(currPath, txtName)
             resultTxts.append(txtFile)

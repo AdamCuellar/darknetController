@@ -10,7 +10,19 @@ from PIL import Image, ImageDraw, ImageFont
 matplotlib.rc('font', **{'size': 11})
 matplotlib.use('Agg')  # for writing to files only
 
+def setupGPU(gpus):
+    # make the selected gpu(s) the only one we can see, that way we can use it for all steps
+    multiGPU = False
+    if len(gpus) > 1:
+        multiGPU = True
+        gpus = [str(x) for x in gpus]
+        os.environ['CUDA_VISIBLE_DEVICES'] = ",".join(gpus)
+    else:
+        gpu = gpus[0]
+        os.environ['CUDA_VISIBLE_DEVICES'] = "{}".format(gpu)
+    return multiGPU
 
+########################################################################################################################
 class Colors:
     # Ultralytics color palette https://ultralytics.com/
     def __init__(self):
