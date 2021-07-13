@@ -52,7 +52,7 @@ class DarknetController():
 
         return dataFile, weightsPath
 
-    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64, maxBatches=None, burn_in=False, auto_anchors=0):
+    def createCfgFile(self, outputPath, datasetName, ogCfg, numClasses, trainInfo, trainHeight, trainWidth, channels, subdivisions=64, maxBatches=None, burn_in=False, auto_anchors=0, lr=None):
 
         if maxBatches is None:
             # calculate max batches (recommended here: https://github.com/AlexeyAB/darknet)
@@ -111,7 +111,7 @@ class DarknetController():
             nextHeader = newCfg[idx+1][0] if idx+1 < len(newCfg) else None
 
             if "net" in header:
-                self._modifyNetParams(attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches, burn_in=burn_in)
+                self._modifyNetParams(attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches, burn_in=burn_in, lr=lr)
 
             elif "convolution" in header and "yolo" in nextHeader:
                 # modify the yolo params first, cause the filters depends on the yolo head masks
@@ -278,7 +278,7 @@ class DarknetController():
         value = splitLine[-1].strip()
         return attribute, value
 
-    def _modifyNetParams(self, attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches, burn_in=True):
+    def _modifyNetParams(self, attrDict, trainWidth, trainHeight, channels, subdivisions, maxBatches, burn_in=True, lr=None):
         if "subdivisions" in attrDict:
             attrDict["subdivisions"] = str(subdivisions)
 
@@ -293,6 +293,9 @@ class DarknetController():
 
         if "max_batches" in attrDict:
             attrDict["max_batches"] = str(maxBatches)
+
+        if lr is not None and "learning_rate" in attrDict:
+            attrDict["learning_rate"] = str(lr)
 
         # this should only happen when we're training multiGPU
         if burn_in:

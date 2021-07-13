@@ -39,11 +39,19 @@ def continue_training():
     dataInfo = parseDataFile(localVars["dataFile"])
     testTxt = dataInfo["valid"]
 
+    # adjust lr unless directed otherwise
+    if args.adjustLR:
+        lr = modelParams["learning_rate"]
+        currIterations = int(args.weights) if args.weights.isnumeric() else modelParams["max_batches"]
+        for numSteps in modelParams["steps"].split(","):
+            if currIterations > int(numSteps):
+                lr *= 0.1
+
     # setup new cfg
     trainInfo = localVars["trainInfo"]
     newCfg = dc.createCfgFile(outPath, expName, localVars["cfgFile"], numClasses=trainInfo["NumClasses"],
                               trainInfo=trainInfo, trainHeight=modelParams["height"], trainWidth=modelParams["width"],
-                              channels=modelParams["channels"], subdivisions=modelParams["subdivisions"], maxBatches=numIterations)
+                              channels=modelParams["channels"], subdivisions=modelParams["subdivisions"], maxBatches=numIterations, lr=lr)
 
     # make the selected gpu(s) the only one we can see, that way we can use it for all steps
     multiGPU = setupGPU(args.gpus)
@@ -83,6 +91,7 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--folder", type=str, help="Path to experiment folder", required=True)
     parser.add_argument("-w", "--weights", type=str, default="last", help="Number or name of weight file to start training from ex. last or best or 1000. Defaults to last")
     parser.add_argument("-n", "--numIterations", type=int, help="Number of iterations to train (not total, just how many more)")
+    parser.add_argument('--adjustLR', action='store_true', help="Adjust LR to value last seen at training.")
     parser.add_argument('--dont_show', action='store_true', help="Don't show training plot (necessary for domino)")
     parser.add_argument('--gpus', default=[0], type=int, nargs='+', help="GPUs available")
     parser.add_argument('--atdTypeEval', action='store_true', help="Run evaluation without marking multiple TP dets as incorrect.")

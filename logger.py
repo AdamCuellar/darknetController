@@ -7,11 +7,11 @@ STYLES = [ Style.DIM, Style.NORMAL, Style.BRIGHT ]
 
 class Logger():
     """ Simple, cool logger that adds color to info and warnings"""
-    def __init__(self, outputPath):
+    def __init__(self, outputPath, overwrite=False):
         init()
         self.txtFile = os.path.join(outputPath, "dc_log.txt")
         self.info("Logging to {}".format(os.path.abspath(self.txtFile)))
-        if os.path.exists(self.txtFile):
+        if overwrite and os.path.exists(self.txtFile):
             os.remove(self.txtFile)
 
     def write(self, txt):
