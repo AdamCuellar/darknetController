@@ -5,7 +5,7 @@ from general import setupGPU
 import eval_utils
 
 import sys
-sys.path.append("PyTorch_YOLOv4")
+sys.path.append("../PyTorch_YOLOv4")
 from utils.general import parse_cfg
 from utils.datasets import parseDataFile
 

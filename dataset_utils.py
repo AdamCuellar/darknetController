@@ -72,6 +72,7 @@ def verifyDataHelper(logger, outputPath, txtFile, netShape, classNames, clearCac
         shapes = vars["shapes"]
         labels = vars["labels"]
         classes = vars["classes"]
+        imgPaths = vars["imgPaths"]
     else:
         # read file
         with open(txtFile, "r") as f:
@@ -120,6 +121,7 @@ def verifyDataHelper(logger, outputPath, txtFile, netShape, classNames, clearCac
         vars["shapes"] = shapes
         vars["labels"] = labels
         vars["classes"] = classes
+        vars["imgPaths"] = imgPaths
         with open(cachedDir, "wb") as f:
             pickle.dump(vars, f)
 
