@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append("../")
+sys.path.append(os.getcwd())
 from DarknetController import DarknetController
 from logger import Logger
 from general import setupGPU
