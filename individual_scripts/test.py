@@ -31,6 +31,8 @@ def test():
     outPath = os.path.abspath(args.folder)
     os.makedirs(outPath, exist_ok=True)
 
+    _ = setupGPU(args.gpus)
+
     # set up darknet
     logger = Logger(outputPath=outPath)
     dc = DarknetController(darknetPath=args.darknetPath, logger=logger)
