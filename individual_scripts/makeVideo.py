@@ -18,7 +18,7 @@ def createVid(imgPaths, folder=""):
                              args.fps,
                              (img.shape[1], img.shape[0]))
 
-    for imgPth in tqdm(imgPaths, desc="Making video {}".format(folder)):
+    for imgPth in tqdm(sorted(imgPaths), desc="Making video {}".format(folder)):
         img = cv2.imread(imgPth)
         vidOut.write(img)
 
