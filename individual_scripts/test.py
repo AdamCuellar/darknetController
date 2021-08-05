@@ -1,6 +1,5 @@
 import os
 import sys
-sys.path.append(os.getcwd())
 from DarknetController import DarknetController
 from logger import Logger
 from general import setupGPU
@@ -31,6 +30,8 @@ def test():
     # make output folder if it doesn't exist
     outPath = os.path.abspath(args.folder)
     os.makedirs(outPath, exist_ok=True)
+
+    _ = setupGPU(args.gpus)
 
     # set up darknet
     logger = Logger(outputPath=outPath)
