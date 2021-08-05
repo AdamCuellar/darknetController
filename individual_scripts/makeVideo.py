@@ -45,6 +45,6 @@ if __name__ == "__main__":
     parser.add_argument('-dd', '--drawnDets', type=str, help='Path to drawn detections', required=True)
     parser.add_argument('-f', '--folder', type=str, help="Path to output folder", required=True)
     parser.add_argument('-n', '--name', type=str, default="drawnDets_video")
-    parser.add_argument('--fps', default=5, help="Frames per second")
+    parser.add_argument('--fps', type=int, default=5, help="Frames per second")
     args = parser.parse_args()
     makeVideo()
