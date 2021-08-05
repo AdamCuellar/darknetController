@@ -36,10 +36,11 @@ class DarknetController():
 
         return namesTxt
 
-    def createDataFile(self, outputPath, datasetName, trainTxt, testTxt, namesFile, numClasses):
+    def createDataFile(self, outputPath, datasetName, trainTxt, testTxt, namesFile, numClasses, makeWeightsFolder=True):
         # make weights folder
         weightsPath = os.path.join(outputPath, "weights")
-        os.makedirs(weightsPath, exist_ok=True)
+        if makeWeightsFolder:
+            os.makedirs(weightsPath, exist_ok=True)
 
         # format lines
         lines = ["classes = {}".format(numClasses), "train = {}".format(trainTxt), "valid = {}".format(testTxt),
