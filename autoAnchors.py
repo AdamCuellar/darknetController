@@ -1,6 +1,11 @@
 import sys
-sys.path.append("PyTorch_YOLOv4")
-from utils.model import *
+
+try:
+    from utils.model import *
+except:
+    sys.path.append("PyTorch_YOLOv4")
+    from utils.model import *
+
 import numpy as np
 import torch
 from tqdm import tqdm
