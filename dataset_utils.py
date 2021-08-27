@@ -146,7 +146,7 @@ def verifyDataHelper(logger, outputPath, txtFile, netShape, classNames, clearCac
     plot_labels(labels[:, 1:].copy(), names=classes, save_dir=os.path.join(outputPath, saveName))
 
     # check if nms causes a performance limitation
-    nmsDict = get_nms_bounds(labels.copy(), classes, netShape)
+    nmsDict = get_nms_bounds(labels.copy(), classNames, netShape)
     plot_nms_limits(os.path.join(outputPath, saveName), nmsDict, labels.shape[0])
 
     # check truth sizes
