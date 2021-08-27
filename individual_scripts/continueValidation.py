@@ -1,25 +1,34 @@
 import os
+import sys
+sys.path.append(os.getcwd())
+
 from DarknetController import DarknetController
 from logger import Logger
 from general import setupGPU
 import eval_utils
 
-import sys
-sys.path.append("../PyTorch_YOLOv4")
-from utils.general import parse_cfg
+sys.path.append(os.path.join(os.getcwd(), "PyTorch_YOLOv4"))
 from utils.datasets import parseDataFile
 
 import argparse
 import time
 import pickle
+import glob
 
-def continue_training():
+def getVars():
+    # only gets necessary variables
+    localVars = dict()
+    localVars["dataFile"] = glob.glob(args.folder + "*.data")[0]
+    localVars["weightsPath"] = os.path.join(args.folder, "weights")
+    localVars["cfgFile"] = glob.glob(args.folder + "*.cfg")[0]
+    localVars["namesFile"] = glob.glob(args.folder + "*.names")[0]
+    return localVars
+
+def continue_validation():
     # get information from darknetController experiment
     varsFile = os.path.join(args.folder, "allVars.p")
-    assert os.path.exists(varsFile), "allVars.p file missing from {}." \
-                                     " Can't continue validation without it :(".format(args.folder)
 
-    localVars = pickle.load(open(varsFile, "rb"))
+    localVars = pickle.load(open(varsFile, "rb")) if os.path.exists(varsFile) else getVars()
 
     # setup darknet controller
     outPath = os.path.dirname(localVars["dataFile"])
@@ -43,21 +52,23 @@ def continue_training():
     imageList, groundtruths, extractedPreds = dc.evalDarknetJsons(predJsons, testTxt, drawDets=args.drawDets, noDualEval=args.atdTypeEval)
 
     # TODO: explainable AI stuff automatically
-    localVars = {"trainInfo":localVars['trainInfo'],
-                 "testInfo":localVars["testInfo"],
-                 "namesFile":localVars["namesFile"],
-                 "dataFile":localVars["dataFile"],
-                 "weightsPath":localVars["weightsPath"],
-                 "cfgFile":localVars["cfgFile"],
-                 "resultsPath":resultsPath,
-                 "weightFiles":weightFiles,
-                 "predJsons":predJsons,
-                 "imageList":imageList,
-                 "groundtruths":groundtruths,
-                 "extractedPreds":extractedPreds}
+    
+    if os.path.exists(varsFile):
+        localVars = {"trainInfo":localVars['trainInfo'],
+                     "testInfo":localVars["testInfo"],
+                     "namesFile":localVars["namesFile"],
+                     "dataFile":localVars["dataFile"],
+                     "weightsPath":localVars["weightsPath"],
+                     "cfgFile":localVars["cfgFile"],
+                     "resultsPath":resultsPath,
+                     "weightFiles":weightFiles,
+                     "predJsons":predJsons,
+                     "imageList":imageList,
+                     "groundtruths":groundtruths,
+                     "extractedPreds":extractedPreds}
 
-    with open(os.path.join(outPath, "allVars.p"), "wb") as f:
-        pickle.dump(localVars, f)
+        with open(os.path.join(outPath, "allVars.p"), "wb") as f:
+            pickle.dump(localVars, f)
 
     return
 
@@ -71,4 +82,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     assert os.path.exists(args.folder), "{} does not exist!".format(args.folder)
-    continue_training()
+    continue_validation()
