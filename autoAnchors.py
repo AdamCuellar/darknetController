@@ -1,9 +1,10 @@
 import sys
+import os
 
 try:
     from utils.model import *
 except:
-    sys.path.append("PyTorch_YOLOv4")
+    sys.path.append(os.path.join(os.getcwd(), "PyTorch_YOLOv4"))
     from utils.model import *
 
 import numpy as np
