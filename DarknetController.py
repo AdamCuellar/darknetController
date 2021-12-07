@@ -409,14 +409,14 @@ class DarknetController():
             stats.append(currStat)
         return stats[0:3]
 
-    def evalDarknetJsons(self, predJsons, testTxt, drawDets=False, noDualEval=False):
+    def evalDarknetJsons(self, predJsons, testTxt, drawDets=False, noDualEval=False, iouThresh=0.5):
         extractedPreds = dict()
         groundtruths, imageList, imageSizes = self._parseGt(testTxt)
         for jsonFile in tqdm(predJsons, desc="Evaluating Darknet Preds"):
             outPath, jsonName = os.path.split(jsonFile)
             jsonName = jsonName.replace(".json", "")
             predictions = self._parseDarknetJson(jsonFile, imageSizes)
-            resultDict, pDet, far = eval_utils.evalMetrics(groundtruths, predictions, numImages=len(imageSizes), noDualEval=noDualEval)
+            resultDict, pDet, far = eval_utils.evalMetrics(groundtruths, predictions, numImages=len(imageSizes), noDualEval=noDualEval, iou_thresh=iouThresh)
             extractedPreds[jsonFile] = (predictions, resultDict['TPByIndex'], resultDict['FPByIndex'])
             eval_utils.drawPlots(resultDict['ThreshDict'], len(groundtruths), outputPath=outPath, outputName=jsonName,
                       numImages=len(imageSizes))

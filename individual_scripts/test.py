@@ -48,7 +48,7 @@ def test():
     # if we have truth, run evaluation
     if checkForTruth(args.txtFile):
         imageList, groundtruths, extractedPreds = dc.evalDarknetJsons(predJsons, args.txtFile, drawDets=args.drawDets,
-                                                                      noDualEval=args.atdTypeEval)
+                                                                      noDualEval=args.atdTypeEval, iouThresh=args.iou_thresh)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -61,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--gpus', default=[0], type=int, nargs='+', help="GPUs available")
     parser.add_argument('--atdTypeEval', action='store_true', help="Run evaluation without marking multiple TP dets as incorrect.")
     parser.add_argument('--drawDets', action='store_true', help="Draw detections for each weights file")
+    parser.add_argument('--iou_thresh', type=float, default=0.5, help="IOU Threshold for evaluation")
     args = parser.parse_args()
 
     test()
