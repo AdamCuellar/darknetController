@@ -19,7 +19,7 @@ def drawBoundingBox(img, objects, color, confThresh, putText=False):
 def makeVideo():
     assert os.path.exists(args.json), "JSON {} does not exist".format(args.json)
     os.makedirs(args.folder, exist_ok=True)
-    outPath = os.path.join(args.folder, args.name)
+    outPath = os.path.join(args.folder, args.name + '.mp4')
 
     with open(args.json, "r") as f:
         detList = json.load(f)
@@ -27,7 +27,10 @@ def makeVideo():
     # check first image size for video size
     firstImgPath = detList[0]["filename"]
     img = cv2.imread(firstImgPath, cv2.IMREAD_UNCHANGED)
-    vidOut = cv2.VideoWriter(outPath, cv2.VideoWriter_fourcc('M','J','P','G'), 5, (img.shape[1], img.shape[0]))
+    vidOut = cv2.VideoWriter(outPath,
+                             cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
+                             args.fps,
+                             (img.shape[1], img.shape[0]))
 
     for detDict in tqdm(detList, desc="Drawing Detections"):
         detections = []

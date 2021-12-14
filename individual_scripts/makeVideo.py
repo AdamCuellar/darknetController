@@ -9,16 +9,16 @@ def createVid(imgPaths, folder=""):
     outPath = os.path.join(args.folder, folder)
     os.makedirs(outPath, exist_ok=True)
 
-    outName = "{}_{}.avi".format(folder, args.name)
+    outName = "{}_{}.mp4".format(folder, args.name)
 
     # get width/height for video
     img = cv2.imread(imgPaths[0])
     vidOut = cv2.VideoWriter(os.path.join(outPath, outName),
-                             cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
+                             cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
                              args.fps,
                              (img.shape[1], img.shape[0]))
 
-    for imgPth in tqdm(sorted(imgPaths), desc="Making video {}".format(folder)):
+    for imgPth in tqdm(sorted(imgPaths), desc="Making Video {}".format(folder)):
         img = cv2.imread(imgPth)
         vidOut.write(img)
 
