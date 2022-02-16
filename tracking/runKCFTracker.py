@@ -38,6 +38,9 @@ class ImageLoader():
         self.count += 1
         return img
 
+    def reset():
+        self.count = 0
+
 def drawBox(img, obj, color=(0, 255, 0), confThresh=0., putText=False, normalize=False):
     if normalize:
         img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
@@ -69,7 +72,7 @@ def main():
     # get image for height width of video
     img = dataloader.next()
     h, w, ch = img.shape
-    dataloader.count = 0
+    dataloader.reset()
 
     # create video
     vidOut = cv2.VideoWriter(os.path.join(args.folder, args.outputName),
