@@ -3,9 +3,11 @@ import os
 
 try:
     from utils.model import *
+    from utils.general import parse_cfg
 except:
     sys.path.append(os.path.join(os.getcwd(), "PyTorch_YOLOv4"))
     from utils.model import *
+    from utils.general import parse_cfg
 
 import numpy as np
 import torch
@@ -131,7 +133,8 @@ def autoAnchors_darknet(cfg, shapes, boxes, img_size, thr=4.0):
 
 def runModel(cfg):
     s = 256
-    model = Darknet(cfg)
+    modelDefs = parse_cfg(cfg)
+    model = Darknet(modelDefs)
     layers = model.module_list
     x = torch.randn((1,3,s,s))
     out = model(x)
