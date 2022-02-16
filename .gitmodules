@@ -3,4 +3,4 @@
 	url = https://github.com/AdamCuellar/PyTorch_YOLOv4.git
 [submodule "tracking/KCF_Tracker"]
 	path = tracking/KCF_Tracker
-	url = git@github.com:AdamCuellar/KCF_Tracker.git
+	url = https://github.com/AdamCuellar/KCF_Tracker.git
