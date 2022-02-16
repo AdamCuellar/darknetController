@@ -309,7 +309,7 @@ class Darknet():
         self.free_detections(detections, num)
         return sorted(predictions, key=lambda x: x[1])
 
-    def load_network(self, config_file, data_file, weights, batch_size=1):
+    def load_network(self, config_file, class_names, weights, batch_size=1):
         """
         load model description and weights from config files
         args:
@@ -324,8 +324,6 @@ class Darknet():
         network = self.load_net_custom(
             config_file.encode("ascii"),
             weights.encode("ascii"), 0, batch_size)
-        metadata = self.load_meta(data_file.encode("ascii"))
-        class_names = [metadata.names[i].decode("ascii") for i in range(metadata.classes)]
         colors = class_colors(class_names)
         return network, class_names, colors
 
