@@ -14,6 +14,9 @@ import torch
 from tqdm import tqdm
 from scipy.cluster.vq import kmeans
 import math
+import argparse
+
+import DarknetController
 
 def isAscending(A):
     A = A.tolist()
@@ -280,4 +283,37 @@ def autoAnchors_pytorch(cfg, ogShapes, boxes, img_size, thr=4.0):
 
     return newAnchors
 
-# TODO: make this callable as an individuals script
+# call as individual script
+def calc_anchors():
+    trainTxt = args.trainTxt
+    classes = args.classes
+    datasetName = args.experimentName
+    ogCfg = args.cfg
+
+    outPath = os.path.join(os.getcwd(), datasetName + "_Anchors")
+    os.makedirs(outPath, exist_ok=True)
+    dc = DarknetController.DarknetController(darknetPath="")
+    trainInfo, testInfo = dc.verifyDataset(outPath, classes=classes, trainTxt=trainTxt, testTxt=trainTxt,
+                                           netShape=[args.trainHeight, args.trainWidth], clearCache=True)
+    namesFile = dc.createNamesFile(outPath, datasetName=datasetName, classes=classes)
+    dataFile, weightsPath = dc.createDataFile(outPath, datasetName, trainTxt, trainTxt, namesFile, len(classes))
+    cfgFile = dc.createCfgFile(outPath, datasetName, ogCfg, numClasses=len(classes), trainInfo=trainInfo,
+                               trainHeight=args.trainHeight,
+                               trainWidth=args.trainWidth, channels=args.channels, subdivisions=64,
+                               maxBatches=None, auto_anchors=args.autoAnchors)
+    print("Done! CFG with adjusted anchors is located in {}".format(os.path.abspath(outPath)))
+    return
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-name', '--experimentName', help="The name of the experiment/dataset you're training on", required=True)
+    parser.add_argument('-train', '--trainTxt', type=str, help="Path to training text file", required=True)
+    parser.add_argument('--cfg', type=str, help="Path to cfg file to utilize", required=True)
+    parser.add_argument('--trainWidth', type=int, help="Width of network input", required=True)
+    parser.add_argument('--trainHeight', type=int, help="Height of network input", required=True)
+    parser.add_argument('--channels', type=int, help="Channels of network input", required=True)
+    parser.add_argument('--classes', nargs='+', type=str, default=["target"], help="Names of classes (must be in order of class index)")
+    parser.add_argument('--autoAnchors', default=2, type=int, help="Use 1 for auto anchors calculated like PyTorch Implementation,"
+                                                                   " use 2 for how Alexey recommends on GitHub")
+    args = parser.parse_args()
+    calc_anchors()

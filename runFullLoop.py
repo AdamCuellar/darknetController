@@ -75,7 +75,7 @@ if __name__ == "__main__":
     parser.add_argument('--trainWidth', type=int, help="Width of network input", required=True)
     parser.add_argument('--trainHeight', type=int, help="Height of network input", required=True)
     parser.add_argument('--channels', type=int, help="Channels of network input", required=True)
-    parser.add_argument('--dont_show', action='store_true', help="Don't show training plot (necessary for domino)")
+    parser.add_argument('--dont_show', action='store_true', help="Don't show training plot (necessary for VPS)")
     parser.add_argument('--drawDets', action='store_true', help="Draw detections for each weights file")
     parser.add_argument('--subdivisions', type=int, default=64, help="Number of subdivisions")
     parser.add_argument('-pt', '--pretrainWeights', default=None, help="Path to pretrained weights for initialization")
