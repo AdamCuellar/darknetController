@@ -17,6 +17,7 @@ import math
 import argparse
 
 import DarknetController
+from general import setupGPU
 
 def isAscending(A):
     A = A.tolist()
@@ -285,6 +286,7 @@ def autoAnchors_pytorch(cfg, ogShapes, boxes, img_size, thr=4.0):
 
 # call as individual script
 def calc_anchors():
+    setupGPU(args.gpus)
     trainTxt = args.trainTxt
     classes = args.classes
     datasetName = args.experimentName
@@ -315,5 +317,7 @@ if __name__ == "__main__":
     parser.add_argument('--classes', nargs='+', type=str, default=["target"], help="Names of classes (must be in order of class index)")
     parser.add_argument('--autoAnchors', default=2, type=int, help="Use 1 for auto anchors calculated like PyTorch Implementation,"
                                                                    " use 2 for how Alexey recommends on GitHub")
+    parser.add_argument('--gpus', default=[0], type=int, nargs='+', help="GPUs available")
+
     args = parser.parse_args()
     calc_anchors()
