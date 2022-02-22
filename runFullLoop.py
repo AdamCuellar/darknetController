@@ -1,4 +1,7 @@
 import os
+import matplotlib
+matplotlib.use('Agg') # for devices without a display
+
 from DarknetController import DarknetController
 from logger import Logger
 from general import setupGPU
