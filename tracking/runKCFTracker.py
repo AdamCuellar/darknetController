@@ -65,6 +65,7 @@ def xlyl2xyxy(box):
 def main():
     os.makedirs(args.folder, exist_ok=True)
 
+    tracker = KCFTracker()
     dataloader = ImageLoader(args.txtFile)
     darknet = Darknet(args.darknetPath)
     network, class_names, colors = darknet.load_network(args.cfg, args.classes, args.weights)
@@ -80,6 +81,7 @@ def main():
                              args.fps,
                              (w, h))
 
+    times = []
     for idx, img in enumerate(tqdm(dataloader, desc="Running Tracker w/ YOLO")):
         h, w, ch = img.shape
         darknetImg = darknet.make_image(w, h, ch)
