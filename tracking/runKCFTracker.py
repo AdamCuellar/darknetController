@@ -38,7 +38,7 @@ class ImageLoader():
         self.count += 1
         return img
 
-    def reset():
+    def reset(self):
         self.count = 0
 
 def drawBox(img, obj, color=(0, 255, 0), confThresh=0., putText=False, normalize=False):
