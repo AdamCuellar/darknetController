@@ -10,13 +10,15 @@ import time
 import numpy as np
 
 from DarknetWrapper import Darknet
-from KCF_Tracker.KCFTracker import KCFTracker
+from KCF_Tracker.KCFTrackManager import TrackManager
+from KCF_Tracker.tools.detection import Detection
 
 class ImageLoader():
     """ Loads image paths from text file, this must be modified for different preprocessing.
         This should also be adjusted if the images contribute to more than one video
     """
     def __init__(self, txtPath):
+        self.count = 0
         with open(txtPath, "r") as f:
             self.imagePaths = f.readlines()
 
@@ -38,7 +40,7 @@ class ImageLoader():
         self.count += 1
         return img
 
-    def reset():
+    def reset(self):
         self.count = 0
 
 def drawBox(img, obj, color=(0, 255, 0), confThresh=0., putText=False, normalize=False):
@@ -70,7 +72,7 @@ def main():
     network, class_names, colors = darknet.load_network(args.cfg, args.classes, args.weights)
 
     # get image for height width of video
-    img = dataloader.next()
+    img = next(dataloader)
     h, w, ch = img.shape
     dataloader.reset()
 
@@ -80,6 +82,8 @@ def main():
                              args.fps,
                              (w, h))
 
+    times = []
+    tracker = TrackManager(useKCF=True)
     for idx, img in enumerate(tqdm(dataloader, desc="Running Tracker w/ YOLO")):
         h, w, ch = img.shape
         darknetImg = darknet.make_image(w, h, ch)
@@ -89,35 +93,27 @@ def main():
         preds = darknet.detect_image(network, class_names, darknetImg, thresh=0.5, hier_thresh=0, nms=0.45, diou=1, letterbox=False)
         darknet.free_image(darknetImg)
 
-        # TODO: this will only take the prediction with the highest confidence for now
-        maxConf = 0
-        pred = None
-        for p in preds:
-            if float(p[1]) > maxConf:
-                pred = p
-                maxConf = float(p[1])
-        if pred is None:
-            continue
+        dets = []
+        for pred in preds:
+            box = pred[-1]
+            xmin = box[0] - box[2] / 2
+            ymin = box[1] - box[3] / 2
+            newBox = [xmin, ymin, box[2], box[3]]
+            dets.append(Detection(newBox, pred[1], 0))
         
-        box = pred[-1]
-        xmin = box[0] - box[2] / 2
-        ymin = box[1] - box[3] / 2
-        newBox = [xmin, ymin, box[2], box[3]]
-        if idx == 0:
-            tracker.init(newBox, img)
-        
-        trackedBox = tracker.update(img, updatedRoi=newBox)
+        tracker.predict()
+        trackedBoxes = tracker.update(dets, img)
         
         t2 = time.time()
         times.append(t2 - t1)
 
-        # draw yolo box in red
-        drawn = drawBox(img[:,:,2:].copy(), [idx, pred[0], float(pred[1]), xlyl2xyxy(newBox)], color=(255, 0, 0), normalize=True)
+        # # draw yolo box in red
+        # drawn = drawBox(img[:,:,2:].copy(), [idx, pred[0], float(pred[1]), xlyl2xyxy(newBox)], color=(255, 0, 0), normalize=True)
 
-        # draw tracked box in green
-        drawn = drawBox(drawn, [idx, pred[0], float(pred[1]), xlyl2xyxy(trackedBox)])
+        # # draw tracked box in green
+        # drawn = drawBox(drawn, [idx, pred[0], float(pred[1]), xlyl2xyxy(trackedBox)])
 
-        vidOut.write(drawn)
+        # vidOut.write(drawn)
 
     vidOut.release()
     times = np.asarray(times)
