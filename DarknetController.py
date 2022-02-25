@@ -248,7 +248,7 @@ class DarknetController():
             predJsons.append(jsonFile)
 
             # call test
-            testLine = "{} detector test {} {} {} -thresh 0.05 -dont_show -ext_output -out {} < {}"
+            testLine = '{} detector test "{}" "{}" "{}" -thresh 0.05 -dont_show -ext_output -out {} < {}'
             testLine = testLine.format(self.darknetPath, dataFile, cfgFile, weights, jsonFile, testTxt)
             t1 = time.time()
             subprocess.call(testLine, shell=True)

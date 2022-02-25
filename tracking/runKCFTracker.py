@@ -12,6 +12,8 @@ import numpy as np
 from DarknetWrapper import Darknet
 from KCF_Tracker.KCFTrackManager import TrackManager
 from KCF_Tracker.tools.detection import Detection
+import faulthandler
+faulthandler.enable()
 
 class ImageLoader():
     """ Loads image paths from text file, this must be modified for different preprocessing.
@@ -34,7 +36,7 @@ class ImageLoader():
             raise StopIteration
 
         imgPath = self.imagePaths[self.count].strip()
-        img = cv2.imread(imgPath, cv2.IMREAD_UNCHANGED)
+        img = cv2.imread(imgPath) #, cv2.IMREAD_UNCHANGED)
         # res, img = cv2.imreadmulti(imgPath, None, cv2.IMREAD_UNCHANGED)
         # img = cv2.merge(img)
         self.count += 1
@@ -74,6 +76,7 @@ def main():
     # get image for height width of video
     img = next(dataloader)
     h, w, ch = img.shape
+
     dataloader.reset()
 
     # create video
@@ -90,7 +93,7 @@ def main():
         darknet.copy_image_from_bytes(darknetImg, img.tobytes())
 
         t1 = time.time()
-        preds = darknet.detect_image(network, class_names, darknetImg, thresh=0.5, hier_thresh=0, nms=0.45, diou=1, letterbox=False)
+        preds = darknet.detect_image(network, class_names, darknetImg, thresh=0.9, hier_thresh=0, nms=0.45, diou=0, letterbox=False)
         darknet.free_image(darknetImg)
 
         dets = []
@@ -102,18 +105,18 @@ def main():
             dets.append(Detection(newBox, pred[1], 0))
         
         tracker.predict()
-        trackedBoxes = tracker.update(dets, img)
-        
+        tracker.update(dets, img)
+
         t2 = time.time()
         times.append(t2 - t1)
 
-        # # draw yolo box in red
-        # drawn = drawBox(img[:,:,2:].copy(), [idx, pred[0], float(pred[1]), xlyl2xyxy(newBox)], color=(255, 0, 0), normalize=True)
+        drawn = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        for i, pred in enumerate(tracker.tracks):
+            trackedBox = pred.to_tlbr()
+            # draw tracked box in green
+            drawn = drawBox(drawn, [idx, "target", 1., trackedBox], color=(0, 255, 0))
 
-        # # draw tracked box in green
-        # drawn = drawBox(drawn, [idx, pred[0], float(pred[1]), xlyl2xyxy(trackedBox)])
-
-        # vidOut.write(drawn)
+        vidOut.write(drawn)
 
     vidOut.release()
     times = np.asarray(times)
